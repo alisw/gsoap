@@ -4158,7 +4158,7 @@ again:
           { X509_EXTENSION *ext = X509_get_ext(peer, i);
             const char *ext_str = OBJ_nid2sn(OBJ_obj2nid(X509_EXTENSION_get_object(ext)));
             if (ext_str && !strcmp(ext_str, "subjectAltName"))
-            { X509V3_EXT_METHOD *meth = X509V3_EXT_get(ext);
+            { const X509V3_EXT_METHOD *meth = X509V3_EXT_get(ext);
               void *ext_data;
 #if (OPENSSL_VERSION_NUMBER >= 0x0090800fL)
               const unsigned char *data;
