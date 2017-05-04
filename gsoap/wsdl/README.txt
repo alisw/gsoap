@@ -140,6 +140,7 @@ generated gSOAP source code output when you purchased a commercial license.
 COMMAND LINE OPTIONS
 
 -a      generate indexed struct names for local elements with anonymous types
+-b	bi-directional operations to serve one-way response messages (duplex)
 -c      generate C source code
 -d      use DOM to populate xs:any and xsd:anyType elements
 -e      don't qualify enum names
@@ -147,25 +148,38 @@ COMMAND LINE OPTIONS
 -g      generate global top-level element declarations
 -h      display help info
 -Ipath  use path to find files
+-i      don't import (advanced option)
 -j	don't generate SOAP_ENV__Header and SOAP_ENV__Detail definitions
 -k	don't generate SOAP_ENV__Header mustUnderstand qualifiers
 -l      include license information in output
 -m      use xsd.h module to import primitive types
+-M      suppress error "must understand element with wsdl:required='true'"
+-Nname  use name for service prefixes to produce a service for each binding
 -nname  use name as the base namespace prefix instead of 'ns'
--Nname  use name as the base namespace prefix for service namespaces
 -ofile  output to file
--p      create polymorphic types with C++ inheritance with base xsd__anyType
+-P      don't create polymorphic types with C++ inheritance from xsd__anyType
+-p      create polymorphic types with C++ inheritance from base xsd__anyType
 -qname  use name for the C++ namespace for all service declarations
 -rhost[:port[:uid:pwd]]
         connect via proxy host, port, and proxy credentials
+-r:uid:pwd
+        connect with authentication credentials (digest auth requires SSL)
+-R      generate REST operations for REST bindings in the WSDL
 -s      don't generate STL code (no std::string and no std::vector)
 -tfile  use type map file instead of the default file typemap.dat
 -u      don't generate unions
+-V      display the current version and exit
 -v      verbose output
+-W      suppress warnings
 -w      always wrap response parameters in a response struct (<=1.1.4 behavior)
 -x      don't generate _XML any/anyAttribute extensibility elements
 -y      generate typedef synonyms for structs and enums
--z      generate pointer-based arrays for backward compatibility < gSOAP 2.7.6e 
+-z1     compatibility with 2.7.6e: generate pointer-based arrays
+-z2     compatibility with 2.7.15: qualify element/attribute referenced members
+-z3     compatibility with 2.7.16 to 2.8.7: qualify element/attribute references
+-z4     compatibility up to 2.8.11: don't generate union structs in std::vector
+-z5     compatibility up to 2.8.15
+-z6     compatibility up to 2.8.17
 -_      don't generate _USCORE (replace with UNICODE _x005f)
 infile.wsdl infile.xsd http://www... list of input sources (if none use stdin)
 
@@ -175,14 +189,18 @@ See soapdoc2.pdf for documentation.
 
 INSTALLATION
 
-Type 'make' in the 'wsdl' directory to build wsdl2h. You must first install the
-gSOAP package and build the gSOAP compiler soapcpp2 to rebuild the wsdl2h WSDL
-parser.
+Use './configure' and 'make' in the root directory, as explained in the 
+installation instructions.
 
-USING SSL FOR HTTPS TRANSFER OF WSDL FILES
+To build 'wsdl2h' when autoconf/automake fail, use:
 
-You must build the WSDL parser with 'make secure' to build an SSL-enabled
-version of wsdl2h that can access HTTPS secure sites.
+	make -f MakefileManual
+
+ENABLING HTTPS SSL/TLS CONNECTIVITY AND HTTP DIGEST AUTHENTICATION
+
+To build 'wsdl2h' with secure features, use:
+
+	make -f MakefileManual secure
 
 If you don't have OpenSSL installed, you cannot build an SSL-secure version of
 wsdl2h. In that case we recommend downloading the WSDL and schema files for
@@ -197,4 +215,4 @@ Please visit http://genivia.com/Products/gsoap/contract.html
 COPYRIGHT NOTICE
 
 gSOAP XML Web services tools
-Copyright (C) 2000-2008, Robert van Engelen, Genivia, Inc. All Rights Reserved.
+Copyright (C) 2000-2013, Robert van Engelen, Genivia, Inc. All Rights Reserved.

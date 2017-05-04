@@ -37,12 +37,7 @@ A commercial use license is available from Genivia, Inc., contact@genivia.com
 
 #include "soapH.h"
 #include "ssl.nsmap"
-
-#include <unistd.h>		/* defines _POSIX_THREADS if pthreads are available */
-#if defined(_POSIX_THREADS) || defined(_SC_THREADS)
-#include <pthread.h>
-#endif
-
+#include "threads.h"		/* gsoap/plugin/threads.h */
 #include <signal.h>		/* defines SIGPIPE */
 
 const char server[] = "https://localhost:18081";
@@ -54,10 +49,12 @@ void sigpipe_handle(int);
 int main()
 { struct soap soap;
   double a, b, result;
-  /* Init OpenSSL */
+  /* Init SSL (can skip or call multiple times, engien inits automatically) */
   soap_ssl_init();
+  /* soap_ssl_noinit(); call this first if SSL is initialized elsewhere */
+  /* set up lSSL ocks */
   if (CRYPTO_thread_setup())
-  { fprintf(stderr, "Cannot setup thread mutex\n");
+  { fprintf(stderr, "Cannot setup thread mutex for OpenSSL\n");
     exit(1);
   }
   a = 10.0;
@@ -78,13 +75,16 @@ int main()
     servers.  Note that the client may fail to connect if the server's
     credentials have problems (e.g. expired). Use SOAP_SSL_NO_AUTHENTICATION
     and set cacert to NULL to encrypt messages if you don't care about the
-    trustworthyness of the server.  Note: setting capath may not work on
-    Windows.
+    trustworthyness of the server.
+    Note 1: the password and capath are not used with GNUTLS
+    Note 2: setting capath may not work on Windows.
   */
   if (soap_ssl_client_context(&soap,
-    SOAP_SSL_DEFAULT,	/* use SOAP_SSL_DEFAULT in production code, we don't want the host name checks since these will change from machine to machine */
-    //SOAP_SSL_DEFAULT | SOAP_SSL_SKIP_HOST_CHECK,	/* use SOAP_SSL_DEFAULT in production code, we don't want the host name checks since these will change from machine to machine */
-    NULL, 		/* keyfile: required only when client must authenticate to server (see SSL docs on how to obtain this file) */
+    /* SOAP_SSL_NO_AUTHENTICATION, */ /* for encryption w/o authentication */
+    /* SOAP_SSL_DEFAULT | SOAP_SSL_SKIP_HOST_CHECK, */ /* if we don't want the host name checks since these will change from machine to machine */
+    SOAP_SSL_DEFAULT | SOAP_SSL_ALLOW_EXPIRED_CERTIFICATE, /* allow self-signed, expired, and certificates w/o CRL */
+    /* SOAP_SSL_DEFAULT, */ /* use SOAP_SSL_DEFAULT in production code */
+    NULL, 		/* keyfile (cert+key): required only when client must authenticate to server (see SSL docs to create this file) */
     NULL, 		/* password to read the keyfile */
     "cacert.pem",	/* optional cacert file to store trusted certificates, use cacerts.pem for all public certificates issued by common CAs */
     NULL,		/* optional capath to directory with trusted certificates */
@@ -93,6 +93,14 @@ int main()
   { soap_print_fault(&soap, stderr);
     exit(1);
   }
+  /* code below enables CRL, may need SOAP_SSL_ALLOW_EXPIRED_CERTIFICATE when certs have no CRL */
+  if (soap_ssl_crl(&soap, "")
+  )
+  { soap_print_fault(&soap, stderr);
+    exit(1);
+  }
+  soap.connect_timeout = 60;	/* try to connect for 1 minute */
+  soap.send_timeout = soap.recv_timeout = 30;	/* if I/O stalls, then timeout after 30 seconds */
   if (soap_call_ns__add(&soap, server, "", a, b, &result) == SOAP_OK)
     fprintf(stdout, "Result: %f + %f = %f\n", a, b, result);
   else
@@ -112,33 +120,17 @@ int main()
 
 #ifdef WITH_OPENSSL
 
-#if defined(WIN32)
-# define MUTEX_TYPE		HANDLE
-# define MUTEX_SETUP(x)		(x) = CreateMutex(NULL, FALSE, NULL)
-# define MUTEX_CLEANUP(x)	CloseHandle(x)
-# define MUTEX_LOCK(x)		WaitForSingleObject((x), INFINITE)
-# define MUTEX_UNLOCK(x)	ReleaseMutex(x)
-# define THREAD_ID		GetCurrentThreadId()
-#elif defined(_POSIX_THREADS) || defined(_SC_THREADS)
-# define MUTEX_TYPE		pthread_mutex_t
-# define MUTEX_SETUP(x)		pthread_mutex_init(&(x), NULL)
-# define MUTEX_CLEANUP(x)	pthread_mutex_destroy(&(x))
-# define MUTEX_LOCK(x)		pthread_mutex_lock(&(x))
-# define MUTEX_UNLOCK(x)	pthread_mutex_unlock(&(x))
-# define THREAD_ID		pthread_self()
-#else
-# error "You must define mutex operations appropriate for your platform"
-# error	"See OpenSSL /threads/th-lock.c on how to implement mutex on your platform"
-#endif
-
 struct CRYPTO_dynlock_value
-{ MUTEX_TYPE mutex;
+{
+  MUTEX_TYPE mutex;
 };
 
 static MUTEX_TYPE *mutex_buf;
 
 static struct CRYPTO_dynlock_value *dyn_create_function(const char *file, int line)
-{ struct CRYPTO_dynlock_value *value;
+{
+  struct CRYPTO_dynlock_value *value;
+  (void)file; (void)line;
   value = (struct CRYPTO_dynlock_value*)malloc(sizeof(struct CRYPTO_dynlock_value));
   if (value)
     MUTEX_SETUP(value->mutex);
@@ -146,30 +138,38 @@ static struct CRYPTO_dynlock_value *dyn_create_function(const char *file, int li
 }
 
 static void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *l, const char *file, int line)
-{ if (mode & CRYPTO_LOCK)
+{
+  (void)file; (void)line;
+  if (mode & CRYPTO_LOCK)
     MUTEX_LOCK(l->mutex);
   else
     MUTEX_UNLOCK(l->mutex);
 }
 
 static void dyn_destroy_function(struct CRYPTO_dynlock_value *l, const char *file, int line)
-{ MUTEX_CLEANUP(l->mutex);
+{
+  (void)file; (void)line;
+  MUTEX_CLEANUP(l->mutex);
   free(l);
 }
 
-void locking_function(int mode, int n, const char *file, int line)
-{ if (mode & CRYPTO_LOCK)
+static void locking_function(int mode, int n, const char *file, int line)
+{
+  (void)file; (void)line;
+  if (mode & CRYPTO_LOCK)
     MUTEX_LOCK(mutex_buf[n]);
   else
     MUTEX_UNLOCK(mutex_buf[n]);
 }
 
-unsigned long id_function()
-{ return (unsigned long)THREAD_ID;
+static unsigned long id_function()
+{
+  return (unsigned long)THREAD_ID;
 }
 
 int CRYPTO_thread_setup()
-{ int i;
+{
+  int i;
   mutex_buf = (MUTEX_TYPE*)malloc(CRYPTO_num_locks() * sizeof(pthread_mutex_t));
   if (!mutex_buf)
     return SOAP_EOM;
@@ -184,7 +184,8 @@ int CRYPTO_thread_setup()
 }
 
 void CRYPTO_thread_cleanup()
-{ int i;
+{
+  int i;
   if (!mutex_buf)
     return;
   CRYPTO_set_id_callback(NULL);
@@ -197,6 +198,17 @@ void CRYPTO_thread_cleanup()
   free(mutex_buf);
   mutex_buf = NULL;
 }
+
+#else
+
+/* OpenSSL not used, e.g. GNUTLS is used */
+
+int CRYPTO_thread_setup()
+{ return SOAP_OK;
+}
+
+void CRYPTO_thread_cleanup()
+{ }
 
 #endif
 

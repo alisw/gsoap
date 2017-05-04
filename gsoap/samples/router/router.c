@@ -107,7 +107,7 @@
 	receive timeout AFTER the connection was established.
 
 	6.
-	cat request.soap | router -e http://domain/path | more
+	cat request.soap | router -c -e http://domain/path | more
 	When request.soap does not contain an HTTP header, the router computes
 	the HTTP content length by buffering the entire request message which
 	allows you to use it as a filter as in this example. (fstat() is
@@ -235,13 +235,8 @@ A commercial use license is available from Genivia, Inc., contact@genivia.com
 */
 
 #include "soapH.h"
-
 #include <sys/stat.h>	/* need fstat */
-
-#include <unistd.h>
-#if defined(_POSIX_THREADS) || defined(_SC_THREADS)
-#include <pthread.h>    /* use Pthreads */
-#endif
+#include "threads.h"	/* plugin/threads.h for portable threads+mutex */
 
 /* Maximum request backlog */
 #define BACKLOG (100)
@@ -293,9 +288,7 @@ main(int argc, char **argv)
 { options(argc, argv);
   if (port_number)
   { /* run server on port */
-#if defined(_POSIX_THREADS) || defined(_SC_THREADS)
-    pthread_t tid;
-#endif
+    THREAD_TYPE tid;
     struct soap soap, *tsoap;
     int m, s, i;
     soap_init(&soap);
@@ -317,11 +310,7 @@ main(int argc, char **argv)
       }
       fprintf(stderr, "Thread %d accepts socket %d connection from IP %d.%d.%d.%d\n", i, s, (int)(soap.ip>>24)&0xFF, (int)(soap.ip>>16)&0xFF, (int)(soap.ip>>8)&0xFF, (int)soap.ip&0xFF);
       tsoap = soap_copy(&soap);
-#if defined(_POSIX_THREADS) || defined(_SC_THREADS)
-      pthread_create(&tid, NULL, (void*(*)(void*))process_request, (void*)tsoap);
-#else
-      process_request((void*)tsoap);
-#endif
+      THREAD_CREATE(&tid, (void*(*)(void*))process_request, (void*)tsoap);
     }
   }
   else /* run as stand-alone or CGI */
@@ -487,9 +476,7 @@ void*
 process_request(void *soap)
 { struct soap *client = (struct soap*)soap, server;
   soap_wchar c;
-#if defined(_POSIX_THREADS) || defined(_SC_THREADS)
-  pthread_detach(pthread_self());
-#endif
+  THREAD_DETACH(THREAD_ID);
   soap_init(&server);
   soap_begin(client);
   c = soap_get0(client);
@@ -551,24 +538,26 @@ lookup(struct t__RoutingTable *route, const char *key, const char *userid, const
     { if (routing_table.__ptr)
         *route = routing_table; /* table is already cached in memory */
       else if (routing_file) /* else read table from file */
-      { struct soap soap;
-        soap_init(&soap);
+      { static struct soap soap = { SOAP_NONE };
+	MUTEX_TYPE lock;
+	MUTEX_LOCK(lock);
+        if (soap.state == SOAP_NONE)
+	  soap_init(&soap);
         soap.recvfd = open(routing_file, O_RDONLY);
         if (soap.recvfd < 0) /* no routing file: silently stop */
-	{ soap_done(&soap);
+	{ MUTEX_UNLOCK(lock);
 	  break;
 	}
         if (!soap_begin_recv(&soap))
 	  if (!soap_get_t__RoutingTable(&soap, &routing_table, "router", NULL))
 	  { close(soap.recvfd);
-	    soap_done(&soap);
+	    MUTEX_UNLOCK(lock);
 	    break;
 	  }
 	soap_end_recv(&soap);
 	close(soap.recvfd);
-	/* do not invoke soap_end() to keep table data permanently */
-	soap_done(&soap);
 	*route = routing_table;
+	MUTEX_UNLOCK(lock);
       }
     }
     else
@@ -581,7 +570,7 @@ int
 make_connect(struct soap *server, const char *endpoint)
 { char host[SOAP_TAGLEN];
   int port;
-  strcpy(host, server->host);
+  soap_strcpy(host, sizeof(host), server->host);
   port = server->port;
   soap_set_endpoint(server, endpoint);	/* get host, path, and port */
   server->connect_timeout = server_timeout;
@@ -682,9 +671,8 @@ copy_header(struct soap *sender, struct soap *receiver, const char *endpoint, co
     size_t n = m + (s - h->line) - 5 - (*h->line == 'P');
     if (n >= sizeof(sender->endpoint))
       n = sizeof(sender->endpoint) - 1;
-    strncpy(sender->path, h->line + 4 + (*h->line == 'P'), n - m);
-    sender->path[n - m] = '\0';
-    strcat(sender->endpoint, sender->path);
+    soap_strncpy(sender->path, sizeof(sender->path), h->line + 4 + (*h->line == 'P'), n - m);
+    soap_strncpy(sender->endpoint + m, sizeof(sender->endpoint) - m, sender->path, n - m);
   }
   if (!endpoint || !*endpoint)
     endpoint = sender->endpoint;
@@ -731,12 +719,12 @@ create_header(struct soap *server, int method, const char *endpoint, const char 
 int
 buffer_body(struct soap *sender)
 { char *s;
-  if (!soap_new_block(sender))
+  if (!soap_alloc_block(sender))
     return sender->error;
   for (;;)
   { if (!(s = (char*)soap_push_block(sender, NULL, sender->buflen - sender->bufidx)))
       return SOAP_EOM;
-    memcpy(s, sender->buf + sender->bufidx, sender->buflen - sender->bufidx);
+    soap_memcpy((void*)s, sender->buflen - sender->bufidx, (const void*)(sender->buf + sender->bufidx), sender->buflen - sender->bufidx);
     if (soap_recv_raw(sender))
       break;
   }

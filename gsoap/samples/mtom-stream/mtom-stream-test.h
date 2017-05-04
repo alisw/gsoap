@@ -64,7 +64,7 @@ A commercial use license is available from Genivia, Inc., contact@genivia.com
 
 #import "soap12.h"
 #import "xop.h"
-#import "xmime4.h"
+#import "xmime5.h"
 
 //gsoap m service name:		mtom_stream_test
 //gsoap m service namespace:	http://www.genivia.com/wsdl/mtom_stream_test.wsdl
@@ -75,7 +75,7 @@ A commercial use license is available from Genivia, Inc., contact@genivia.com
 //gsoap x schema type-documentation: Data holds a MIME attachment
 struct x__Data
 { _xop__Include xop__Include;
-  @char *xmime4__contentType;
+  @char *xmime5__contentType;
 };
 
 //gsoap x schema type-documentation: DataSet holds a set of MIME attachments

@@ -1,11 +1,11 @@
 /*
+	xsd.h
 
-xsd.h
+	Use #import "xsd.h" in a gSOAP header file to import predefined XSD
+	types.
 
-Use #import "xsd.h" in a gSOAP header file to import predefined XSD types.
-
-Use wsdl2h option -m to automatically import these xsd.h definitions in the
-generated .h file.
+	Use wsdl2h option -m to automatically import these xsd.h definitions in
+	the generated .h file.
 
 gSOAP XML Web services tools
 Copyright (C) 2000-2008, Robert van Engelen, Genivia Inc., All Rights Reserved.
@@ -42,6 +42,9 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 
 Author contact information:
 engelen@genivia.com / engelen@acm.org
+
+This program is released under the GPL with the additional exemption that
+compiling, linking, and/or using OpenSSL is allowed.
 --------------------------------------------------------------------------------
 A commercial use license is available from Genivia, Inc., contact@genivia.com
 --------------------------------------------------------------------------------
@@ -97,3 +100,6 @@ typedef unsigned char	xsd__unsignedByte;
 typedef unsigned int	xsd__unsignedInt;
 typedef unsigned LONG64	xsd__unsignedLong;
 typedef unsigned short	xsd__unsignedShort;
+
+typedef char *		_SOAP_ENC__actor;
+typedef int		_SOAP_ENC__mustUnderstand;

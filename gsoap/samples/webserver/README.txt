@@ -53,7 +53,7 @@ system access and run the webserver under this account.
 	http://127.0.0.1:8081/webserver.wsdl
 
 	Use (HTTPS GET):
-	Create the SSL certificate
+	Create the SSL certificate (see samples/ssl README and scripts)
 	Compile the web server with OpenSSL as explained above
 	Start the web server on an odd numbered port (e.g. 8081)
 	> webserver 8081 &

@@ -1,21 +1,22 @@
 /*
 
-wsa4.h
+	wsa4.h
 
-Usage: See plugin/wsaapi.c
+	Usage: See plugin/wsaapi.c
 
-Generated with:
-wsdl2h -cgye -o wsa4.h -t WS/WS-typemap.dat WS/WS-Addressing04.xsd
+	Generated with:
+	wsdl2h -cgye -o wsa4.h -t WS/WS-typemap.dat WS/WS-Addressing04.xsd
 
-Modified by Robert van Engelen:
+	Modified by Robert van Engelen:
 
-- Removed //gsoapopt
-- Added the following directive to import WS-Addressing namespace:
-  //gsoap wsa4 schema import: http://schemas.xmlsoap.org/ws/2004/03/addressing
-  This ensures that the WS-Addressing schemas are not copied into the generated
-  WSDL by soapcpp2 but are referenced with schema import in the generated WSDL.
-- Added #define SOAP_WSA_2004
-- Added SOAP_ENV__Header struct
+	- Removed //gsoapopt
+	- Added the following directive to import WS-Addressing namespace:
+	  //gsoap wsa4 schema import: http://schemas.xmlsoap.org/ws/2004/03/addressing
+	  This ensures that the WS-Addressing schemas are not copied into the generated
+	  WSDL by soapcpp2 but are referenced with schema import in the generated WSDL.
+	- Added #define SOAP_WSA_2004
+	- Added mutable SOAP_ENV__Header struct
+	- Added SOAP_ENV__Fault one-way operation
 
 */
 
@@ -41,7 +42,7 @@ Modified by Robert van Engelen:
  *                                                                            *
 \******************************************************************************/
 
-//gsoap wsa4  import namespace:	http://schemas.xmlsoap.org/ws/2004/03/addressing
+//gsoap wsa4  schema import:	http://schemas.xmlsoap.org/ws/2004/03/addressing
 //gsoap wsa4  schema elementForm:	qualified
 //gsoap wsa4  schema attributeForm:	unqualified
 
@@ -190,7 +191,7 @@ typedef struct wsa4__EndpointReferenceType _wsa4__FaultTo;
 /// Attribute "http://schemas.xmlsoap.org/ws/2004/03/addressing":Action of simpleType xs:anyURI.
 // '_wsa4__Action' attribute definition intentionally left blank.
 
-struct SOAP_ENV__Header
+mutable struct SOAP_ENV__Header
 {
                  _wsa4__MessageID  wsa4__MessageID 0;
                  _wsa4__RelatesTo *wsa4__RelatesTo 0;
@@ -200,5 +201,20 @@ struct SOAP_ENV__Header
   mustUnderstand _wsa4__To         wsa4__To        0;
   mustUnderstand _wsa4__Action     wsa4__Action    0;
 };
+
+// Added
+//gsoap SOAP_ENV service method-action: Fault http://schemas.xmlsoap.org/ws/2004/03/addressing/soap/fault
+int SOAP_ENV__Fault
+(       _QName			 faultcode,		// SOAP 1.1
+        char			*faultstring,		// SOAP 1.1
+        char			*faultactor,		// SOAP 1.1
+        struct SOAP_ENV__Detail	*detail,		// SOAP 1.1
+        struct SOAP_ENV__Code	*SOAP_ENV__Code,	// SOAP 1.2
+        struct SOAP_ENV__Reason	*SOAP_ENV__Reason,	// SOAP 1.2
+        char			*SOAP_ENV__Node,	// SOAP 1.2
+        char			*SOAP_ENV__Role,	// SOAP 1.2
+        struct SOAP_ENV__Detail	*SOAP_ENV__Detail,	// SOAP 1.2
+	void
+);
 
 /* End of wsa4.h */

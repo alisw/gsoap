@@ -8,14 +8,14 @@ CC=gcc
 CPP=g++
 LIBS=-lpthread -lz -lssl -lcrypto
 COFLAGS=-O2
-CWFLAGS=
+CWFLAGS=-Wall -Wno-deprecated-declarations
 CIFLAGS=-I../.. -I../../plugin
 CMFLAGS=-DWITH_COOKIES -DWITH_GZIP -DWITH_OPENSSL 
 CFLAGS= $(CWFLAGS) $(COFLAGS) $(CIFLAGS) $(CMFLAGS)
 all:		webserver
-webserver:	webserver.h webserver.c logging.o httpget.o httpform.o httpda.o md5evp.o threads.o options.o $(SOAPH) $(SOAPC)
+webserver:	webserver.h webserver.c logging.o httpget.o httppost.o httpform.o httpda.o smdevp.o threads.o options.o $(SOAPH) $(SOAPC)
 		$(GSOAP) -c -L webserver.h
-		$(CC) $(CFLAGS) -o webserver webserver.c logging.o httpget.o httpform.o httpda.o md5evp.o threads.o options.o soapC.c soapClient.c soapServer.c $(SOAPC) $(LIBS)
+		$(CC) $(CFLAGS) -o webserver webserver.c logging.o httpget.o httppost.o httpform.o httpda.o smdevp.o threads.o options.o soapC.c soapClient.c soapServer.c $(SOAPC) $(LIBS)
 options.o:	opt.h options.h options.c
 		$(GSOAP) -cnpopt opt.h
 		$(CC) $(CFLAGS) -c options.c
@@ -23,12 +23,14 @@ logging.o:	../../plugin/logging.h ../../plugin/logging.c
 		$(CC) $(CFLAGS) -c ../../plugin/logging.c
 httpget.o:      ../../plugin/httpget.h ../../plugin/httpget.c
 		$(CC) $(CFLAGS) -c ../../plugin/httpget.c
+httppost.o:	../../plugin/httppost.h ../../plugin/httppost.c
+		$(CC) $(CFLAGS) -c ../../plugin/httppost.c
 httpform.o:	../../plugin/httpform.h ../../plugin/httpform.c
 		$(CC) $(CFLAGS) -c ../../plugin/httpform.c
 httpda.o:	../../plugin/httpda.h ../../plugin/httpda.c
 		$(CC) $(CFLAGS) -c ../../plugin/httpda.c
-md5evp.o:	../../plugin/md5evp.h ../../plugin/md5evp.c
-		$(CC) $(CFLAGS) -c ../../plugin/md5evp.c
+smdevp.o:	../../plugin/smdevp.h ../../plugin/smdevp.c
+		$(CC) $(CFLAGS) -c ../../plugin/smdevp.c
 threads.o:	../../plugin/threads.h ../../plugin/threads.c
 		$(CC) $(CFLAGS) -c ../../plugin/threads.c
 .PHONY: clean distclean

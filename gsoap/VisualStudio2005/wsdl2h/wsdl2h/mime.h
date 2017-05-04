@@ -1,12 +1,12 @@
 /*
 	mime.h
 
-	WSDL/MIME binding schema
+	mime and xmime binding schema
 
 --------------------------------------------------------------------------------
 gSOAP XML Web services tools
 Copyright (C) 2001-2008, Robert van Engelen, Genivia Inc. All Rights Reserved.
-This software is released under one of the following two licenses:
+This software is released under one of the following licenses:
 GPL or Genivia's license for commercial use.
 --------------------------------------------------------------------------------
 GPL license.
@@ -34,6 +34,11 @@ A commercial use license is available from Genivia, Inc., contact@genivia.com
 
 //gsoap mime schema documentation:	WSDL/MIME binding schema
 //gsoap mime schema namespace:		http://schemas.xmlsoap.org/wsdl/mime/
+//gsoap mime schema elementForm:	qualified
+//gsoap mime schema attributeForm:	unqualified
+
+//gsoap xmime schema documentation:	xmime binding schema
+//gsoap xmime schema namespace:		http://www.w3.org/2005/05/xmlmime
 
 #import "imports.h"
 #import "soap.h"
@@ -58,4 +63,9 @@ class mime__multipartRelated
 	std::vector<mime__part>		part;
   public:
   	int				traverse(wsdl__definitions&);
+};
+
+class mime__mimeXml
+{ public:
+	@xsd__NMTOKEN			part;
 };

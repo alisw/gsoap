@@ -65,7 +65,7 @@ A commercial use license is available from Genivia, Inc., contact@genivia.com
 extern "C" {
 #endif
 
-#define HTTP_MD5_ID "HTTP-MD5-1.1" /* plugin identification */
+#define HTTP_MD5_ID "HTTP-MD5-1.2" /* plugin identification */
 
 extern const char http_md5_id[];
 
@@ -74,10 +74,11 @@ int http_md5(struct soap *soap, struct soap_plugin *p, void *arg);
 struct http_md5_data
 { int (*fposthdr)(struct soap*, const char*, const char*);
   int (*fparsehdr)(struct soap*, const char*, const char*);
-  int (*fprepareinit)(struct soap*);
+  int (*fprepareinitsend)(struct soap*);
+  int (*fprepareinitrecv)(struct soap*);
   int (*fpreparesend)(struct soap*, const char*, size_t);
   int (*fpreparerecv)(struct soap*, const char*, size_t);
-  int (*fdisconnect)(struct soap*);
+  int (*fpreparefinalrecv)(struct soap*);
   void *context;
   char digest[16];
 };

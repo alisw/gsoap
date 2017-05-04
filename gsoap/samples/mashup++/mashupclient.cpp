@@ -42,12 +42,14 @@ int main()
   mashupProxy proxy;
   _ns3__commingtotown response;
 
-  if (proxy.dtx("", &response))
+  if (proxy.dtx((char*)"", response))
     proxy.soap_stream_fault(std::cerr);
   else if (response.days == 0)
     std::cout << "Today is the day!" << std::endl;
   else
     std::cout << "Wait " << response.days << " more days to xmas" << std::endl;
+
+  proxy.destroy(); // delete deserialized data
 
   return 0;
 }

@@ -3,8 +3,9 @@
 #---------------------------------------------------------------------------
 # Project related configuration options
 #---------------------------------------------------------------------------
-PROJECT_NAME           = "gSOAP WS-Security"
-PROJECT_NUMBER         = "2.7"
+PROJECT_NAME           = "WS-Security"
+PROJECT_NUMBER         = "2.8 Stable"
+PROJECT_LOGO           = "../GeniviaLogo2_trans_noslogan.png"
 OUTPUT_DIRECTORY       = 
 CREATE_SUBDIRS         = NO
 OUTPUT_LANGUAGE        = English
@@ -24,8 +25,8 @@ ABBREVIATE_BRIEF       = "The $name class" \
                          the
 ALWAYS_DETAILED_SEC    = NO
 INLINE_INHERITED_MEMB  = NO
-FULL_PATH_NAMES        = YES
-STRIP_FROM_PATH        = /Applications/
+FULL_PATH_NAMES        = NO
+STRIP_FROM_PATH        = 
 STRIP_FROM_INC_PATH    = 
 SHORT_NAMES            = NO
 JAVADOC_AUTOBRIEF      = NO
@@ -77,7 +78,7 @@ WARN_LOGFILE           =
 #---------------------------------------------------------------------------
 # configuration options related to the input files
 #---------------------------------------------------------------------------
-INPUT                  = ../../plugin/wsseapi.h ../../plugin/wsseapi.c ../../plugin/smdevp.h ../../plugin/smdevp.c ../../import/wsse.h ../../import/ds.h ../../import/wsu.h ../../import/c14n.h
+INPUT                  = ../../plugin/wsseapi.h ../../plugin/wsseapi.c ../../plugin/smdevp.h ../../plugin/smdevp.c ../../plugin/mecevp.h ../../plugin/mecevp.c ../../plugin/threads.h ../../plugin/threads.c ../../import/wsse.h ../../import/ds.h ../../import/xenc.h ../../import/wsu.h ../../import/c14n.h ../../import/wsc.h
 FILE_PATTERNS          = *.c \
                          *.cc \
                          *.cxx \
@@ -147,9 +148,10 @@ IGNORE_PREFIX          =
 GENERATE_HTML          = YES
 HTML_OUTPUT            = html
 HTML_FILE_EXTENSION    = .html
-HTML_HEADER            = 
-HTML_FOOTER            = 
+HTML_HEADER            = ../doxygen_header.html
+HTML_FOOTER            = ../doxygen_footer.html
 HTML_STYLESHEET        = 
+HTML_EXTRA_STYLESHEET  = ../genivia_content.css ../genivia_tabs.css
 HTML_ALIGN_MEMBERS     = YES
 GENERATE_HTMLHELP      = NO
 CHM_FILE               = 
@@ -246,7 +248,7 @@ INCLUDED_BY_GRAPH      = YES
 CALL_GRAPH             = NO
 GRAPHICAL_HIERARCHY    = YES
 DOT_IMAGE_FORMAT       = png
-DOT_PATH               = /Applications/Doxygen.app/Contents/Resources/
+DOT_PATH               = /opt/local/bin
 DOTFILE_DIRS           = 
 MAX_DOT_GRAPH_WIDTH    = 1024
 MAX_DOT_GRAPH_HEIGHT   = 1024

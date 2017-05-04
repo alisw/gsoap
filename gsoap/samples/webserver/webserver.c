@@ -3,13 +3,13 @@
 
 	Example stand-alone gSOAP Web server based on the gSOAP HTTP GET plugin.
 	This is a small but fully functional (embedded) Web server for serving
-	static and dynamic pages and SOAP/XML responses.
+	static and dynamic pages and SOAP/XML responses over HTTP/HTTPS.
 
 --------------------------------------------------------------------------------
 gSOAP XML Web services tools
-Copyright (C) 2001-2008, Robert van Engelen, Genivia, Inc. All Rights Reserved.
+Copyright (C) 2001-2010, Robert van Engelen, Genivia, Inc. All Rights Reserved.
 This software is released under one of the following two licenses:
-GPL or Genivia's license for commercial use.
+GPL OR Genivia's license for commercial use.
 --------------------------------------------------------------------------------
 GPL license.
 
@@ -37,6 +37,11 @@ A commercial use license is available from Genivia, Inc., contact@genivia.com
 	a simple calculator XML Web service for demonstration purposes (the
 	service responds with SOAP/XML).
 
+	HTTPS (SSL/TLS) connectivity is supported. However, some browsers do
+	not allow self-signed certificates. The example certificate server.pem
+	included here is self signed. You can import the cacert.pem certificate
+	into the browser to validate the web server.
+
 	This application requires Zlib and Pthreads (you can replace Pthreads
 	with another thread library, but you need to study the OpenSSL thread
 	changes in the OpenSSL documentation).
@@ -52,11 +57,17 @@ A commercial use license is available from Genivia, Inc., contact@genivia.com
 	Customize your COOKIE_DOMAIN in this file
 	gcc -DWITH_COOKIES -DWITH_ZLIB -o webserver webserver.c options.c plugin/httpget.c plugin/httpform.c plugin/logging.c stdsoap2.c soapC.c soapClient.c soapServer.c -lpthread -lz
 
-	Compile with OpenSSL:
+	Compile with OpenSSL (also enables HTTP Digest Authentication):
 	soapcpp2 -c -n -popt opt.h
 	soapcpp2 -c webserver.h
 	Customize your COOKIE_DOMAIN in this file
-	gcc -DWITH_OPENSSL -DWITH_COOKIES -DWITH_ZLIB -o webserver webserver.c options.c plugin/httpget.c plugin/httpform.c plugin/logging.c stdsoap2.c soapC.c soapClient.c soapServer.c -lpthread -lz -lssl -lcrypto
+	gcc -DWITH_OPENSSL -DWITH_COOKIES -DWITH_ZLIB -o webserver webserver.c options.c plugin/httpget.c plugin/httpform.c plugin/logging.c plugin/threads.c plugin/httpda.c plugin/md5evp.c stdsoap2.c soapC.c soapClient.c soapServer.c -lpthread -lz -lssl -lcrypto
+
+	Compile with GNUTLS:
+	soapcpp2 -c -n -popt opt.h
+	soapcpp2 -c webserver.h
+	Customize your COOKIE_DOMAIN in this file
+	gcc -DWITH_GNUTLS -DWITH_COOKIES -DWITH_ZLIB -o webserver webserver.c options.c plugin/httpget.c plugin/httpform.c plugin/logging.c stdsoap2.c soapC.c soapClient.c soapServer.c -lpthread -lz -lgnutls -lgcrypt
 
 	Use (HTTP GET):
 	Compile the web server as explained above
@@ -73,7 +84,7 @@ A commercial use license is available from Genivia, Inc., contact@genivia.com
 	http://127.0.0.1:8081/webserver.wsdl
 
 	Use (HTTPS GET):
-	Create the SSL certificate
+	Create the SSL certificate (see samples/ssl README and scripts)
 	Compile the web server with OpenSSL as explained above
 	Start the web server on an odd numbered port (e.g. 8081)
 	> webserver 8081 &
@@ -83,8 +94,8 @@ A commercial use license is available from Genivia, Inc., contact@genivia.com
 	https://127.0.0.1:8081
 	and type userid 'admin' and passwd 'guest' to gain access
 	Open the location:
-	https://127.0.0.1:8081/calc.html
-	and enter an expression
+	https://127.0.0.1:8081/calcform1.html
+	and enter an expression to calculate
 	Open the locations:
 	https://127.0.0.1:8081/test.html
 	https://127.0.0.1:8081/webserver.wsdl
@@ -117,18 +128,21 @@ A commercial use license is available from Genivia, Inc., contact@genivia.com
 */
 
 #include "soapH.h"
-#include "webserver.nsmap"
+#include "webserver.nsmap"	/* namespaces updated 4/4/13 */
 #include "options.h"
 #include "httpget.h"
+#include "httppost.h"
 #include "httpform.h"
 #include "logging.h"
 #include "threads.h"
+#ifdef WITH_OPENSSL
 #include "httpda.h" 	/* optionally enable HTTP Digest Authentication */
-#include <signal.h>	/* defines SIGPIPE */
+#endif
+#include <signal.h>	/* need SIGPIPE */
 
 #define BACKLOG (100)
 
-#define AUTH_REALM "gSOAP Web Server Admin"
+#define AUTH_REALM "gSOAP Web Server Admin demo login: admin guest"
 #define AUTH_USERID "admin"	/* user ID to access admin pages */
 #define AUTH_PASSWD "guest"	/* user pw to access admin pages */
 
@@ -166,11 +180,11 @@ static const struct option default_options[] =
   { "k.keepalive", NULL, },
   { "i.iterative", NULL, },
   { "v.verbose", NULL, },
-  { "o.pool", "threads", 6, "none"},
-  { "t.ioTimeout", "seconds", 6, "5"},
-  { "s.serverTimeout", "seconds", 6, "3600"},
-  { "d.cookieDomain", "host", 20, "localhost"},
-  { "p.cookiePath", "path", 20, "/"},
+  { "o.pool", "threads", 6, (char*)"none"},
+  { "t.ioTimeout", "seconds", 6, (char*)"5"},
+  { "s.serverTimeout", "seconds", 6, (char*)"3600"},
+  { "d.cookieDomain", "host", 20, (char*)"127.0.0.1"},
+  { "p.cookiePath", "path", 20, (char*)"/"},
   { "l.logging", "none inbound outbound both", },
   { "", "port", },		/* takes the rest of command line args */
   { NULL },			/* must be NULL terminated */
@@ -214,7 +228,10 @@ void *process_request(void*);	/* multi-threaded request handler */
 void *process_queue(void*);	/* multi-threaded request handler for pool */
 int enqueue(SOAP_SOCKET);
 SOAP_SOCKET dequeue();
-int http_get_handler(struct soap*);	/* HTTP get handler */
+int http_GET_handler(struct soap*);	/* HTTP httpget plugin GET handler */
+int http_PUT_handler(struct soap*);	/* HTTP httpost plugin handler for PUT (see table below) */
+int http_POST_handler(struct soap*);	/* HTTP httpost plugin handler for POST (see table below) */
+int http_DELETE_handler(struct soap*);	/* HTTP httpost plugin handler for DELETE (see table below) */
 int http_form_handler(struct soap*);	/* HTTP form handler */
 int check_authentication(struct soap*);	/* HTTP authentication check */
 int copy_file(struct soap*, const char*, const char*);	/* copy file as HTTP response */
@@ -224,15 +241,21 @@ int info(struct soap*);
 int html_hbar(struct soap*, const char*, size_t, size_t, unsigned long);
 int html_hist(struct soap*, const char*, size_t, size_t, size_t, const char**, size_t*, size_t);
 void sigpipe_handle(int); /* SIGPIPE handler: Unix/Linux only */
+int CRYPTO_thread_setup();
+void CRYPTO_thread_cleanup();
 
 /******************************************************************************\
  *
- *	OpenSSL
+ *	PUT/POST/DELETE handlers for httppost plugin
  *
 \******************************************************************************/
 
-int CRYPTO_thread_setup();
-void CRYPTO_thread_cleanup();
+struct http_post_handlers http_handlers[] = {
+  { "PUT",    http_PUT_handler },
+  { "POST",   http_POST_handler },
+  { "DELETE", http_DELETE_handler },
+  { NULL }
+};
 
 /******************************************************************************\
  *
@@ -261,28 +284,47 @@ int main(int argc, char **argv)
   if (port % 2)
     secure = 1;
   if (secure)
-    fprintf(stderr, "[Note: https://localhost:%d/test.html to test the server from browser]\n", port);
+    fprintf(stderr, "[Note: https://127.0.0.1:%d/test.html to test the server from browser]\n", port);
   else
-    fprintf(stderr, "[Note: http://localhost:%d/test.html to test the server from browser]\n", port);
-  fprintf(stderr, "[Note: http://localhost:%d for settings, login: '"AUTH_USERID"' and '"AUTH_PASSWD"']\n", port);
+    fprintf(stderr, "[Note: http://127.0.0.1:%d/test.html to test the server from browser]\n", port);
+  fprintf(stderr, "[Note: http://127.0.0.1:%d for settings, login: '"AUTH_USERID"' and '"AUTH_PASSWD"']\n", port);
   fprintf(stderr, "[Note: you should enable Linux/Unix SIGPIPE handlers to avoid broken pipe]\n");
+
+  /* Init SSL (can skip or call multiple times, engien inits automatically) */
+  soap_ssl_init();
+  /* soap_ssl_noinit(); call this first if SSL is initialized elsewhere */
 
   soap_init2(&soap, SOAP_IO_KEEPALIVE, SOAP_IO_DEFAULT);
 
-#ifdef WITH_OPENSSL
+  /* set up lSSL ocks */
   if (CRYPTO_thread_setup())
   {
     fprintf(stderr, "Cannot setup thread mutex\n");
     exit(1);
   }
-  /* SSL (to enable: compile all sources with -DWITH_OPENSSL) */
+#if defined(WITH_OPENSSL) || defined(WITH_GNUTLS)
+ /* The supplied server certificate "server.pem" assumes that the server is
+    running on 'localhost', so clients can only connect from the same host when
+    verifying the server's certificate.
+    To verify the certificates of third-party services, they must provide a
+    certificate issued by Verisign or another trusted CA. At the client-side,
+    the capath parameter should point to a directory that contains these
+    trusted (root) certificates or the cafile parameter should refer to one
+    file will all certificates. To help you out, the supplied "cacerts.pem"
+    file contains the certificates issued by various CAs. You should use this
+    file for the cafile parameter instead of "cacert.pem" to connect to trusted
+    servers. Note that the client may fail to connect if the server's
+    credentials have problems (e.g. expired).
+    Note 1: the password and capath are not used with GNUTLS
+    Note 2: setting capath may not work on Windows.
+  */
   if (secure && soap_ssl_server_context(&soap,
     SOAP_SSL_DEFAULT,
     "server.pem",	/* keyfile: see SSL docs on how to obtain this file */
     "password",		/* password to read the key file */
-    NULL, 		/* cacert */
-    NULL,		/* capath */
-    "dh512.pem",	/* DH file, if NULL use RSA */
+    NULL, 		/* cacert CA certificate, or ... */
+    NULL,		/* capath CA certificate path */
+    NULL, 		/* DH file (e.g. "dh2048.pem") or numeric DH param key len bits in string (e.g. "2048"), if NULL then use RSA */
     NULL,		/* if randfile!=NULL: use a file with random data to seed randomness */ 
     "webserver"		/* server identification for SSL session cache (must be a unique name) */
   ))
@@ -292,9 +334,12 @@ int main(int argc, char **argv)
   }
 #endif
   /* Register HTTP GET plugin */
-  if (soap_register_plugin_arg(&soap, http_get, (void*)http_get_handler))
+  if (soap_register_plugin_arg(&soap, http_get, (void*)http_GET_handler))
     soap_print_fault(&soap, stderr);
-  /* Register HTTP POST plugin */
+  /* Register HTTP POST plugin with the table of handlers */
+  if (soap_register_plugin_arg(&soap, http_post, (void*)http_handlers))
+    soap_print_fault(&soap, stderr);
+  /* Register HTTP form POST plugin (MUST be registered AFTER the httppost plugin) */
   if (soap_register_plugin_arg(&soap, http_form, (void*)http_form_handler))
     soap_print_fault(&soap, stderr);
   /* Register logging plugin */
@@ -319,14 +364,12 @@ int main(int argc, char **argv)
   MUTEX_SETUP(queue_cs);
   COND_SETUP(queue_cv);
   server_loop(&soap);
-  MUTEX_CLEANUP(queue_cs);
   COND_CLEANUP(queue_cv);
+  MUTEX_CLEANUP(queue_cs);
   free_options(options);
   soap_end(&soap);
   soap_done(&soap);
-#ifdef WITH_OPENSSL
   CRYPTO_thread_cleanup();
-#endif
   THREAD_EXIT;
   return 0;
 }
@@ -342,10 +385,10 @@ void server_loop(struct soap *soap)
     SOAP_SOCKET sock;
     int newpoolsize;
     
-    soap->cookie_domain = options[OPTION_d].value;
-    soap->cookie_path = options[OPTION_p].value;
-    soap_set_cookie(soap, "visit", "true", NULL, NULL);
-    soap_set_cookie_expire(soap, "visit", 600, NULL, NULL);
+    soap->cookie_domain = options[OPTION_d].value; /* set domain of this server */
+    soap->cookie_path = options[OPTION_p].value;   /* set root path of the cookies */
+    soap_set_cookie(soap, "visit", "true", NULL, NULL); /* use global domain/path */
+    soap_set_cookie_expire(soap, "visit", 600, NULL, NULL); /* max-age is 600 seconds to expire */
 
     if (options[OPTION_c].selected)
       soap_set_omode(soap, SOAP_IO_CHUNK); /* use chunked HTTP content (fast) */
@@ -403,7 +446,7 @@ void server_loop(struct soap *soap)
 	if (!soap_thr[job])
 	  break;
 
-        soap_thr[job]->user = (void*)job;
+        soap_thr[job]->user = (void*)(long)job; /* int to ptr */
 	
         fprintf(stderr, "Starting thread %d\n", job);
         THREAD_CREATE(&tids[job], (void*(*)(void*))process_queue, (void*)soap_thr[job]);
@@ -450,23 +493,12 @@ void server_loop(struct soap *soap)
 
       if (tsoap)
       {
-#ifdef WITH_OPENSSL
-        if (secure && soap_ssl_accept(tsoap))
-        {
-	  soap_print_fault(tsoap, stderr);
-          fprintf(stderr, "SSL request failed, continue with next call...\n");
-          soap_end(tsoap);
-          soap_done(tsoap);
-          free(tsoap);
-          continue;
-        }
-#endif
-        tsoap->user = (void*)req;
+        tsoap->user = (void*)(long)req;
         THREAD_CREATE(&tid, (void*(*)(void*))process_request, (void*)tsoap);
       }
       else
       {
-#ifdef WITH_OPENSSL
+#if defined(WITH_OPENSSL) || defined(WITH_GNUTLS)
         if (secure && soap_ssl_accept(soap))
         {
 	  soap_print_fault(soap, stderr);
@@ -475,7 +507,10 @@ void server_loop(struct soap *soap)
           continue;
         }
 #endif
-	/* Keep-alive: frequent EOF faults occur related to KA-timeouts */
+	/* Keep-alive: frequent EOF faults occur related to KA-timeouts:
+           timeout: soap->error == SOAP_EOF && soap->errnum == 0
+           error:   soap->error != SOAP_OK
+        */
         if (soap_serve(soap) && (soap->error != SOAP_EOF || (soap->errnum != 0 && !(soap->omode & SOAP_IO_KEEPALIVE))))
 	{
 	  fprintf(stderr, "Request #%d completed with failure %d\n", req, soap->error);
@@ -504,8 +539,7 @@ void server_loop(struct soap *soap)
       fprintf(stderr, "Waiting for thread %d to terminate... ", job);
       THREAD_JOIN(tids[job]);
       fprintf(stderr, "terminated\n");
-      soap_done(soap_thr[job]);
-      free(soap_thr[job]);
+      soap_free(soap_thr[job]);
     }
   }
 }
@@ -522,14 +556,28 @@ void *process_request(void *soap)
 
   THREAD_DETACH(THREAD_ID);
 
+#if defined(WITH_OPENSSL) || defined(WITH_GNUTLS)
+  if (secure && soap_ssl_accept(tsoap))
+  {
+    soap_print_fault(tsoap, stderr);
+    fprintf(stderr, "SSL request failed, continue with next call...\n");
+    soap_destroy(tsoap);
+    soap_end(tsoap);
+    soap_done(tsoap);
+    free(tsoap);
+    return NULL;
+  }
+#endif
+
   if (soap_serve(tsoap) && (tsoap->error != SOAP_EOF || (tsoap->errnum != 0 && !(tsoap->omode & SOAP_IO_KEEPALIVE))))
   {
-    fprintf(stderr, "Thread %d completed with failure %d\n", (int)tsoap->user, tsoap->error);
+    fprintf(stderr, "Thread %d completed with failure %d\n", (int)(long)tsoap->user, tsoap->error);
     soap_print_fault(tsoap, stderr);
   }
   else if (options[OPTION_v].selected)
-    fprintf(stderr, "Thread %d completed\n", (int)tsoap->user);
-  soap_destroy((struct soap*)soap);
+    fprintf(stderr, "Thread %d completed\n", (int)(long)tsoap->user);
+
+  soap_destroy(tsoap);
   soap_end(tsoap);
   soap_done(tsoap);
   free(soap);
@@ -552,29 +600,30 @@ void *process_queue(void *soap)
     tsoap->socket = dequeue();
     if (!soap_valid_socket(tsoap->socket))
     { if (options[OPTION_v].selected)
-        fprintf(stderr, "Thread %d terminating\n", (int)tsoap->user);
+        fprintf(stderr, "Thread %d terminating\n", (int)(long)tsoap->user);
       break;
     }
 
-#ifdef WITH_OPENSSL
+#if defined(WITH_OPENSSL) || defined(WITH_GNUTLS)
     if (secure && soap_ssl_accept(tsoap))
     {
       soap_print_fault(tsoap, stderr);
       fprintf(stderr, "SSL request failed, continue with next call...\n");
+      soap_destroy(tsoap);
       soap_end(tsoap);
       continue;
     }
 #endif
 
     if (options[OPTION_v].selected)
-      fprintf(stderr, "Thread %d accepted a request\n", (int)tsoap->user);
+      fprintf(stderr, "Thread %d accepted a request\n", (int)(long)tsoap->user);
     if (soap_serve(tsoap) && (tsoap->error != SOAP_EOF || (tsoap->errnum != 0 && !(tsoap->omode & SOAP_IO_KEEPALIVE))))
     {
-      fprintf(stderr, "Thread %d finished serving request with failure %d\n", (int)tsoap->user, tsoap->error);
+      fprintf(stderr, "Thread %d finished serving request with failure %d\n", (int)(long)tsoap->user, tsoap->error);
       soap_print_fault(tsoap, stderr);
     }
     else if (options[OPTION_v].selected)
-      fprintf(stderr, "Thread %d finished serving request\n", (int)tsoap->user);
+      fprintf(stderr, "Thread %d finished serving request\n", (int)(long)tsoap->user);
     soap_destroy(tsoap);
     soap_end(tsoap);
   }
@@ -702,11 +751,11 @@ int ns__divResponse_(struct soap *soap, double a)
 
 /******************************************************************************\
  *
- *	HTTP GET handler for plugin
+ *	HTTP GET handler for httpget plugin
  *
 \******************************************************************************/
 
-int http_get_handler(struct soap *soap)
+int http_GET_handler(struct soap *soap)
 {
   /* gSOAP >=2.5 soap_response() will do this automatically for us, when sending SOAP_HTML or SOAP_FILE:
   if ((soap->omode & SOAP_IO) != SOAP_IO_CHUNK)
@@ -721,15 +770,14 @@ int http_get_handler(struct soap *soap)
 #endif
   /* Use soap->path (from request URL) to determine request: */
   if (options[OPTION_v].selected)
-    fprintf(stderr, "HTTP GET Request: %s\n", soap->endpoint);
-  /* Note: soap->path always starts with '/' */
-  if (strchr(soap->path + 1, '/') || strchr(soap->path + 1, '\\'))	/* we don't like snooping in dirs */
+    fprintf(stderr, "HTTP GET Request '%s' to host '%s' path '%s'\n", soap->endpoint, soap->host, soap->path);
+  /* we don't like request to snoop around in dirs, so reject when path has a '/' or a '\' or you must at least check for .. to avoid request from snooping around in higher dirs! */
+  /* Note: soap->path always starts with '/' so we chech path + 1 */
+  if (strchr(soap->path + 1, '/') || strchr(soap->path + 1, '\\'))
     return 403; /* HTTP forbidden */
   if (!soap_tag_cmp(soap->path, "*.html"))
     return copy_file(soap, soap->path + 1, "text/html");
-  if (!soap_tag_cmp(soap->path, "*.xml")
-   || !soap_tag_cmp(soap->path, "*.xsd")
-   || !soap_tag_cmp(soap->path, "*.wsdl"))
+  if (!soap_tag_cmp(soap->path, "*.xml"))
     return copy_file(soap, soap->path + 1, "text/xml");
   if (!soap_tag_cmp(soap->path, "*.jpg"))
     return copy_file(soap, soap->path + 1, "image/jpeg");
@@ -742,13 +790,16 @@ int http_get_handler(struct soap *soap)
   if (!strncmp(soap->path, "/calc?", 6))
     return calcget(soap);
   if (!strncmp(soap->path, "/genivia", 8))
-  { strcpy(soap->endpoint, "http://genivia.com"); /* redirect */
-    strcat(soap->endpoint, soap->path + 8);
+  { (SOAP_SNPRINTF(soap->endpoint, sizeof(soap->endpoint), strlen(soap->path) + 10), "http://genivia.com%s", soap->path + 8); /* redirect */
     return 307; /* Temporary Redirect */
   }
   /* Check requestor's authentication: */
   if (check_authentication(soap))
     return 401; /* HTTP not authorized */
+  /* For example, we can put WSDL and XSD files behind authentication wall */
+  if (!soap_tag_cmp(soap->path, "*.xsd")
+   || !soap_tag_cmp(soap->path, "*.wsdl"))
+    return copy_file(soap, soap->path + 1, "text/xml");
   /* Return Web server status */
   if (soap->path[1] == '\0' || soap->path[1] == '?')
     return info(soap);
@@ -763,7 +814,7 @@ int check_authentication(struct soap *soap)
 #ifdef HTTPDA_H
   else if (soap->authrealm && soap->userid)
   { if (!strcmp(soap->authrealm, AUTH_REALM) && !strcmp(soap->userid, AUTH_USERID))
-      if (!http_da_verify_get(soap, AUTH_PASSWD))
+      if (!http_da_verify_get(soap, (char*)AUTH_PASSWD))
         return SOAP_OK;
   }
 #endif
@@ -773,7 +824,71 @@ int check_authentication(struct soap *soap)
 
 /******************************************************************************\
  *
- *	HTTP POST application/x-www-form-urlencoded handler for plugin
+ *	HTTP PUT handler for httppost plugin
+ *
+\******************************************************************************/
+
+int http_PUT_handler(struct soap *soap)
+{
+  /* Use soap->path (from request URL) to determine request: */
+  if (options[OPTION_v].selected)
+    fprintf(stderr, "HTTP PUT Request: %s\n", soap->endpoint);
+  /* Note: soap->path always starts with '/' */
+  if (!strcmp(soap->path, "/person.xml"))
+  {
+    /* in this example we actually do not save the data as a file person.xml, but we could! */
+    const char *data = soap_get_http_body(soap, NULL);
+    return 202; /* HTTP accepted */
+  }
+  return 404; /* HTTP not found */
+}
+
+/******************************************************************************\
+ *
+ *	HTTP POST handler for httppost plugin
+ *
+\******************************************************************************/
+
+int http_POST_handler(struct soap *soap)
+{
+#ifdef WITH_ZLIB
+  if (options[OPTION_z].selected && soap->zlib_out == SOAP_ZLIB_GZIP) /* client accepts gzip */
+    soap_set_omode(soap, SOAP_ENC_ZLIB); /* so we can compress content (gzip) */
+  soap->z_level = 9; /* best compression */
+#endif
+  /* Use soap->path (from request URL) to determine request: */
+  if (options[OPTION_v].selected)
+    fprintf(stderr, "HTTP POST Request: %s\n", soap->endpoint);
+  /* Note: soap->path always starts with '/' */
+  if (!strcmp(soap->path, "/person.xml"))
+  {
+    /* in this example we actually do not save the data as a file person.xml, but we could! */
+    const char *data = soap_get_http_body(soap, NULL);
+    return copy_file(soap, "person.xml", "text/xml");
+  }
+  return 404; /* HTTP not found */
+}
+
+/******************************************************************************\
+ *
+ *	HTTP DELETE handler for httppost plugin
+ *
+\******************************************************************************/
+
+int http_DELETE_handler(struct soap *soap)
+{
+  /* Use soap->path (from request URL) to determine request: */
+  if (options[OPTION_v].selected)
+    fprintf(stderr, "HTTP DELETE Request: %s\n", soap->endpoint);
+  /* Note: soap->path always starts with '/' */
+  if (!strcmp(soap->path, "/person.xml"))
+    return 202; /* HTTP accepted */
+  return 404; /* HTTP not found */
+}
+
+/******************************************************************************\
+ *
+ *	HTTP POST application/x-www-form-urlencoded handler for httpform plugin
  *
 \******************************************************************************/
 
@@ -864,7 +979,7 @@ int calcget(struct soap *soap)
       return soap_sender_fault(soap, "Unknown operation", NULL);
   }
   soap_response(soap, SOAP_HTML);
-  sprintf(buf, "<html>value=%d</html>", val);
+  (SOAP_SNPRINTF(buf, sizeof(buf), 40), "<html>value=%d</html>", val);
   soap_send(soap, buf);
   soap_end_send(soap);
   return SOAP_OK;
@@ -909,7 +1024,7 @@ int calcpost(struct soap *soap)
       return soap_sender_fault(soap, "Unknown operation", NULL);
   }
   soap_response(soap, SOAP_HTML);
-  sprintf(buf, "<html>value=%d</html>", val);
+  (SOAP_SNPRINTF(buf, sizeof(buf), 40), "<html>value=%d</html>", val);
   soap_send(soap, buf);
   soap_end_send(soap);
   return SOAP_OK;
@@ -953,7 +1068,7 @@ int f__form1(struct soap *soap)
       return soap_sender_fault(soap, "Unknown operation", NULL);
   }
   soap_response(soap, SOAP_HTML);
-  sprintf(buf, "<html>value=%d</html>", val);
+  (SOAP_SNPRINTF(buf, sizeof(buf), 40), "<html>value=%d</html>", val);
   soap_send(soap, buf);
   soap_end_send(soap);
   return SOAP_OK;
@@ -1002,7 +1117,7 @@ int info(struct soap *soap)
 { struct http_get_data *getdata;
   size_t stat_sent, stat_recv;
   const char *t0, *t1, *t2, *t3, *t4, *t5, *t6, *t7;
-  char buf[2048]; /* buffer large enough to hold HTML content */
+  char buf[4096]; /* buffer large enough to hold parts of HTML content */
   struct soap_plugin *p;
   time_t now = time(NULL), elapsed = now - start;
   query_options(soap, options);
@@ -1026,7 +1141,7 @@ int info(struct soap *soap)
     if (soap->imode & SOAP_ENC_SSL)
       t4 = "<td align='center' bgcolor='green'>PASS</td>";
     else
-      t4 = "<td align='center' bgcolor='red'><blink>FAIL</blink></td>";
+      t4 = "<td align='center' bgcolor='red'>FAIL</td>";
   }
   else
   { t3 = "<td align='center' bgcolor='red'>NO</td>";
@@ -1054,7 +1169,7 @@ int info(struct soap *soap)
     t7 = "<td align='center' bgcolor='red'>NO</td>";
   if (soap_response(soap, SOAP_HTML))
     return soap->error;
-  sprintf(buf, "\
+  (SOAP_SNPRINTF(buf, sizeof(buf), 4095), "\
 <html>\
 <head>\
 <meta name='Author' content='Robert A. van Engelen'>\
@@ -1065,14 +1180,14 @@ int info(struct soap *soap)
 </head>\
 <body bgcolor='#FFFFFF'>\
 <h1>gSOAP Web Server Administration</h1>\
-<p>Server endpoint=%s client agent IP=%d.%d.%d.%d\
+<p/>Server endpoint=%s client agent IP=%d.%d.%d.%d\
 <h2>Registered Plugins</h2>\
 ", soap->endpoint, (int)(soap->ip>>24)&0xFF, (int)(soap->ip>>16)&0xFF, (int)(soap->ip>>8)&0xFF, (int)soap->ip&0xFF);
   if (soap_send(soap, buf))
     return soap->error;
   for (p = soap->plugins; p; p = p->next)
-  { sprintf(buf, "%s<br>", p->id);
-    if (soap_send(soap, buf))
+  { if (soap_send(soap, p->id)
+     || soap_send(soap, "<br/>"))
       return soap->error;
   }
   if (soap_send(soap, "<h2>Elapsed Time</h2>"))
@@ -1085,7 +1200,7 @@ int info(struct soap *soap)
   soap_send(soap, "<h2>Control Panel</h2>");
   if (html_form_options(soap, options))
     return soap->error;
-  sprintf(buf, "\
+  (SOAP_SNPRINTF(buf, sizeof(buf), 4095), "\
 <h2>Function Tests</h2>\
 <table border='0' cellspacing='0' cellpadding='0' bgcolor='#666666' nosave>\
 <tr height='10'><td height='10' background='bl.gif'></td><td height='10'><i>Function</i></td><td align='center' height='10'><i>Result</i></td><td height='10' background='obls.gif'></td></tr>\
@@ -1134,31 +1249,31 @@ int info(struct soap *soap)
     html_hist(soap, "Day", 2, 0, 365, NULL, getdata->day, T.tm_yday);
   }
   soap_send(soap, "\
-<p>This page will automatically reload every minute to refresh the statistics.\
-<br><br><br><img src='favicon.gif' align='absmiddle'>Powered by gSOAP\
+<p/>This page will automatically reload every minute to refresh the statistics.\
+<br/><br/><br/><img src='favicon.gif' align='absmiddle'>Powered by gSOAP\
 </body>\
-</HTML>");
+</html>");
   return soap_end_send(soap);
 }
 
-static size_t html_scaled(char *buf, size_t len)
+static size_t html_scaled(char *buf, size_t max, size_t len)
 { if (len > 1000000)
-  { sprintf(buf, "%.2f&#183;10<sup>6</sup>", (float)len/1000000.0);
+  { (SOAP_SNPRINTF(buf, max, 39), "%.2f&#183;10<sup>6</sup>", (float)len/1000000.0);
     return len / 1000000;
   }
   if (len > 1000)
-  { sprintf(buf, "%.2f&#183;10<sup>3</sup>", (float)len/1000.0);
+  { (SOAP_SNPRINTF(buf, max, 39), "%.2f&#183;10<sup>3</sup>", (float)len/1000.0);
     return len / 1000;
   }
-  sprintf(buf, "%lu", (unsigned long)len);
+  (SOAP_SNPRINTF(buf, max, 20), "%lu", (unsigned long)len);
   return len;
 }
 
 int html_hbar(struct soap *soap, const char *title, size_t pix, size_t len, unsigned long color)
-{ char buf[2048]; /* buffer large enough to hold HTML content */
-  char lab[32];
-  len = html_scaled(lab, len);
-  sprintf(buf, "\
+{ char buf[4096]; /* buffer large enough to hold parts of HTML content */
+  char lab[40];
+  len = html_scaled(lab, sizeof(lab), len);
+  (SOAP_SNPRINTF(buf, sizeof(buf), 4095), "\
 <table border='0' cellspacing='0' cellpadding='0' height='30'>\
 <tr height='10'>\
 <td width='10' height='10' background='bl.gif'></td>\
@@ -1176,13 +1291,13 @@ int html_hbar(struct soap *soap, const char *title, size_t pix, size_t len, unsi
 <td colspan='2' height='10' background='ts.gif'></td>\
 <td width='10' height='10' background='otls.gif'></td>\
 </tr>\
-</table>", (unsigned long)pix, title ? title : "", lab, color, (unsigned long)len * 2);
+</table>", (unsigned long)pix, title && strlen(title) < 80 ? title : "", lab, color, (unsigned long)len * 2);
   return soap_send(soap, buf);
 }
 
 int html_hist(struct soap *soap, const char *title, size_t barwidth, size_t height, size_t num, const char **key, size_t *val, size_t highlight)
-{ char buf[2048]; /* buffer large enough to hold HTML content */
-  char lab[32];
+{ char buf[4096]; /* buffer large enough to hold HTML content */
+  char lab[40];
   size_t i, max;
   float scale;
   max = 0;
@@ -1198,8 +1313,8 @@ int html_hist(struct soap *soap, const char *title, size_t barwidth, size_t heig
       height = 256;
   }
   scale = (float)height / (float)max;
-  html_scaled(lab, max);
-  sprintf(buf, "\
+  html_scaled(lab, sizeof(lab), max);
+  (SOAP_SNPRINTF(buf, sizeof(buf), 4095), "\
 <a name='%s'></a>\
 <table bgcolor='#FFFFFF' border='0' cellspacing='0' cellpadding='0' height='%lu' align='center'>\
 <tr height='10'>\
@@ -1207,31 +1322,31 @@ int html_hist(struct soap *soap, const char *title, size_t barwidth, size_t heig
 </tr>\
 <tr height='%lu' align='center' valign='bottom'>\
 <td width='10' height='%lu' background='bl.gif'></td>\
-<td bgcolor='#666666' valign='top'>%s</td>", title ? title : "", (unsigned long)height + 50, (unsigned long)num + 1, (unsigned long)height, (unsigned long)height, lab);
+<td bgcolor='#666666' valign='top'>%s</td>", title && strlen(title) < 80 ? title : "", (unsigned long)height + 50, (unsigned long)num + 1, (unsigned long)height, (unsigned long)height, lab);
   if (soap_send(soap, buf))
     return soap->error;
   for (i = 0; i < num; i++)
   { unsigned long bar = (scale * val[i] + 0.5);
     if (bar >= 1)
-      sprintf(buf, "\
-<td bgcolor='#FFFFFF'><a onmouseover=\"window.status='%lu';return true\" onmouseout=\"window.status='';return true\" href='#%s'><img src='top.gif' alt='' width='%lu' height='1' align='bottom' border='0'><br><img src='bar.gif' alt='' width='%lu' height='%lu' align='bottom' border='0'></a></td>", (unsigned long)i, title ? title : "", (unsigned long)barwidth, (unsigned long)barwidth, bar - 1);
+      (SOAP_SNPRINTF(buf, sizeof(buf), 4095), "\
+<td bgcolor='#FFFFFF'><a onmouseover=\"window.status='%lu';return true\" onmouseout=\"window.status='';return true\" href='#%s'><img src='top.gif' alt='' width='%lu' height='1' align='bottom' border='0'><br><img src='bar.gif' alt='' width='%lu' height='%lu' align='bottom' border='0'></a></td>", (unsigned long)i, title && strlen(title) < 80 ? title : "", (unsigned long)barwidth, (unsigned long)barwidth, bar - 1);
     else
-      sprintf(buf, "\
+      (SOAP_SNPRINTF(buf, sizeof(buf), 4095), "\
 <td bgcolor='#FFFFFF'><img src='bar.gif' alt='' width='%lu' height='0' align='bottom' border='0'></td>", (unsigned long)barwidth);
     if (soap_send(soap, buf))
       return soap->error;
   }
-  sprintf(buf, "\
+  (SOAP_SNPRINTF(buf, sizeof(buf), 4095), "\
 <td width='10' height='%lu' background='br.gif'></td>\
 <td width='10' height='%lu' background='ls.gif'></td>\
 </tr>\
 <tr bgcolor='#666666' height='20' align='center'>\
 <td width='10' height='20' background='bl.gif'></td>\
-<td bgcolor='#666666'>%s</td>", (unsigned long)height, (unsigned long)height, title ? title : "");
+<td bgcolor='#666666'>%s</td>", (unsigned long)height, (unsigned long)height, title && strlen(title) < 80 ? title : "");
   if (soap_send(soap, buf))
     return soap->error;
   for (i = 0; i < num; i++)
-  { sprintf(buf, "<td%s>%s</td>", (i == highlight) ? " bgcolor='#777777'" : "", key ? key[i] : "<img src='bar.gif'>");
+  { (SOAP_SNPRINTF(buf, sizeof(buf), 4095), "<td%s>%s</td>", (i == highlight) ? " bgcolor='#777777'" : "", key ? key[i] : "<img src='bar.gif'>");
     if (soap_send(soap, buf))
       return soap->error;
   }
@@ -1239,7 +1354,7 @@ int html_hist(struct soap *soap, const char *title, size_t barwidth, size_t heig
 <td width='10' height='20' background='br.gif'></td>\
 <td width='10' height='20' background='ls.gif'></td>"))
     return soap->error;
-  sprintf(buf, "\
+  (SOAP_SNPRINTF(buf, sizeof(buf), 4095), "\
 </tr>\
 <tr height='10'>\
 <td width='10' height='10' background='bbl.gif'></td><td colspan='%lu' height='10' background='bb.gif'></td><td width='10' height='10' background='bbr.gif'></td><td width='10' height='10' background='ls.gif'></td>\
@@ -1262,13 +1377,16 @@ int html_hist(struct soap *soap, const char *title, size_t barwidth, size_t heig
 #ifdef WITH_OPENSSL
 
 struct CRYPTO_dynlock_value
-{ MUTEX_TYPE mutex;
+{
+  MUTEX_TYPE mutex;
 };
 
 static MUTEX_TYPE *mutex_buf;
 
 static struct CRYPTO_dynlock_value *dyn_create_function(const char *file, int line)
-{ struct CRYPTO_dynlock_value *value;
+{
+  struct CRYPTO_dynlock_value *value;
+  (void)file; (void)line;
   value = (struct CRYPTO_dynlock_value*)malloc(sizeof(struct CRYPTO_dynlock_value));
   if (value)
     MUTEX_SETUP(value->mutex);
@@ -1276,31 +1394,39 @@ static struct CRYPTO_dynlock_value *dyn_create_function(const char *file, int li
 }
 
 static void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *l, const char *file, int line)
-{ if (mode & CRYPTO_LOCK)
+{
+  (void)file; (void)line;
+  if (mode & CRYPTO_LOCK)
     MUTEX_LOCK(l->mutex);
   else
     MUTEX_UNLOCK(l->mutex);
 }
 
 static void dyn_destroy_function(struct CRYPTO_dynlock_value *l, const char *file, int line)
-{ MUTEX_CLEANUP(l->mutex);
+{
+  (void)file; (void)line;
+  MUTEX_CLEANUP(l->mutex);
   free(l);
 }
 
-void locking_function(int mode, int n, const char *file, int line)
-{ if (mode & CRYPTO_LOCK)
+static void locking_function(int mode, int n, const char *file, int line)
+{
+  (void)file; (void)line;
+  if (mode & CRYPTO_LOCK)
     MUTEX_LOCK(mutex_buf[n]);
   else
     MUTEX_UNLOCK(mutex_buf[n]);
 }
 
-unsigned long id_function()
-{ return (unsigned long)THREAD_ID;
+static unsigned long id_function()
+{
+  return (unsigned long)THREAD_ID;
 }
 
 int CRYPTO_thread_setup()
-{ int i;
-  mutex_buf = (MUTEX_TYPE*)malloc(CRYPTO_num_locks() * sizeof(MUTEX_TYPE));
+{
+  int i;
+  mutex_buf = (MUTEX_TYPE*)malloc(CRYPTO_num_locks() * sizeof(pthread_mutex_t));
   if (!mutex_buf)
     return SOAP_EOM;
   for (i = 0; i < CRYPTO_num_locks(); i++)
@@ -1314,7 +1440,8 @@ int CRYPTO_thread_setup()
 }
 
 void CRYPTO_thread_cleanup()
-{ int i;
+{
+  int i;
   if (!mutex_buf)
     return;
   CRYPTO_set_id_callback(NULL);
@@ -1327,6 +1454,17 @@ void CRYPTO_thread_cleanup()
   free(mutex_buf);
   mutex_buf = NULL;
 }
+
+#else
+
+/* OpenSSL not used */
+
+int CRYPTO_thread_setup()
+{ return SOAP_OK;
+}
+
+void CRYPTO_thread_cleanup()
+{ }
 
 #endif
 

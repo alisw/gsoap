@@ -3,15 +3,17 @@
 ## you have all needed files, that a GNU package needs
 AUTOMAKE_OPTIONS = foreign 1.4
 
-noinst_PROGRAMS = wssedemo
+noinst_PROGRAMS = wssedemo wsselite
 SOAPHEADER = wssedemo.h
 
 include ../Makefile.defines
 include ../Makefile.c_rules
-SOAP_NS = wssedemo.nsmap wssedemo.wsdl
+SOAP_NS = wssedemo.nsmap
 
 wssedemo_CFLAGS = -DWITH_DOM -DWITH_OPENSSL -DWITH_GZIP
-wssedemo_SOURCES = wssedemo.c $(SOAPHEADER) $(SOAP_C_SRC) ../../dom.c ../../plugin/wsseapi.c ../../plugin/smdevp.c
-wssedemo_LDADD = $(SOAP_C_LIB_SSL) $(SAMPLE_EXTRA_LIBS) -lssl -lcrypto -lz
+wssedemo_SOURCES = wssedemo.c $(SOAPHEADER) $(SOAP_C_SRC) ../../stdsoap2.c ../../dom.c ../../plugin/wsseapi.c ../../plugin/smdevp.c ../../plugin/mecevp.c
+wssedemo_LDADD = $(SAMPLE_SSL_LIBS) $(SAMPLE_EXTRA_LIBS) -lssl -lcrypto -lz
 
+wsselite_SOURCES = wsselite.c $(SOAPHEADER) $(SOAP_C_SRC) ../../stdsoap2.c ../../plugin/wsseapi-lite.c
+wsselite_LDADD = $(SAMPLE_SSL_LIBS) $(SAMPLE_EXTRA_LIBS)
 

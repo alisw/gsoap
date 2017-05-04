@@ -5,22 +5,9 @@
 
 --------------------------------------------------------------------------------
 gSOAP XML Web services tools
-Copyright (C) 2000-2009, Robert van Engelen, Genivia Inc. All Rights Reserved.
-This part of the software is released under ONE of the following licenses:
-GPL, the gSOAP public license, OR Genivia's license for commercial use.
---------------------------------------------------------------------------------
-gSOAP public license.
-
-The contents of this file are subject to the gSOAP Public License Version 1.3
-(the "License"); you may not use this file except in compliance with the
-License. You may obtain a copy of the License at
-http://www.cs.fsu.edu/~engelen/soaplicense.html
-Software distributed under the License is distributed on an "AS IS" basis,
-WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
-for the specific language governing rights and limitations under the License.
-
-The Initial Developer of the Original Code is Robert A. van Engelen.
-Copyright (C) 2000-2009 Robert A. van Engelen, Genivia inc. All Rights Reserved.
+Copyright (C) 2000-2017, Robert van Engelen, Genivia Inc. All Rights Reserved.
+This part of the software is released under one of the following licenses:
+GPL or Genivia's license for commercial use.
 --------------------------------------------------------------------------------
 GPL license.
 
@@ -56,72 +43,77 @@ A commercial use license is available from Genivia, Inc., contact@genivia.com
 #include "error2.h"
 
 #ifndef VERSION
-#define VERSION "2.7.13" /* Current version */
+# define VERSION "2.8.45" /* Current version */
+# define GSOAP_VERSION 20845
 #endif
 
 #ifdef WIN32
-#pragma warning(disable : 4996)
-#ifndef WITH_BISON
-#define WITH_BISON
-#endif
+# pragma warning(disable : 4996)
+# ifndef WITH_BISON
+#  define WITH_BISON
+# endif
 #endif
 
 /* #define DEBUG */ /* uncomment to debug */
 
 #ifdef DEBUG
-#define	check(expr, msg) ((expr) ? 1 : progerror(msg, __FILE__, __LINE__))
-#define DBGLOG(DBGCMD) { DBGCMD; }
+# define	check(expr, msg) (void)((expr) ? 0 : (progerror(msg, __FILE__, __LINE__), 0))
+# define DBGLOG(DBGCMD) { DBGCMD; }
 #else
-#define check(expr, msg) (expr, 1)
-#define DBGLOG(DBGCMD)
+# define check(expr, msg) (void)(expr)
+# define DBGLOG(DBGCMD)
 #endif
 
 #ifdef WIN32
-#ifdef WITH_BISON
-#ifdef WIN32_WITHOUT_SOLARIS_FLEX
-#define yyparse soapcpp2parse
-#define yylex soapcpp2lex
-#define yyerror soapcpp2error
-#define yylval soapcpp2lval
-#define yychar soapcpp2char
-#define yydebug soapcpp2debug
-#define yynerrs soapcpp2nerrs
-#define yylineno soapcpp2lineno
-#define yytext soapcpp2text
-#define yyin soapcpp2in
-#define yywrap soapcpp2wrap
-#endif
-#endif
+# ifdef WITH_BISON
+#  ifdef WIN32_WITHOUT_SOLARIS_FLEX
+#   define yyparse soapcpp2parse
+#   define yylex soapcpp2lex
+#   define yyerror soapcpp2error
+#   define yylval soapcpp2lval
+#   define yychar soapcpp2char
+#   define yydebug soapcpp2debug
+#   define yynerrs soapcpp2nerrs
+#   define yylineno soapcpp2lineno
+#   define yytext soapcpp2text
+#   define yyin soapcpp2in
+#   define yywrap soapcpp2wrap
+#  endif
+# endif
 #endif
 
 #ifdef WIN32
-#define SOAP_PATHCAT "\\"
-#define SOAP_PATHSEP ";"
-#define LONG64 __int64
+# define SOAP_PATHCAT "\\"
+# define SOAP_PATHSEP ";"
+# define LONG64 __int64
 #else
-#define SOAP_PATHCAT "/"
-#define SOAP_PATHSEP ":"
-#define LONG64 long long
+# define SOAP_PATHCAT "/"
+# define SOAP_PATHSEP ":"
+# define LONG64 long long
+#endif
+
+#ifndef ULONG64
+# define ULONG64 unsigned LONG64
 #endif
 
 #if defined(WIN32)
-#define SOAP_LONG_FORMAT "%I64d"
-#define SOAP_ULONG_FORMAT "%I64u"
-#define SOAP_XLONG_FORMAT "%I64x"
+# define SOAP_LONG_FORMAT "%I64d"
+# define SOAP_ULONG_FORMAT "%I64u"
+# define SOAP_XLONG_FORMAT "%I64x"
 #elif defined(TRU64)
-#define SOAP_LONG_FORMAT "%ld"
-#define SOAP_ULONG_FORMAT "%lu"
-#define SOAP_XLONG_FORMAT "%lx"
+# define SOAP_LONG_FORMAT "%ld"
+# define SOAP_ULONG_FORMAT "%lu"
+# define SOAP_XLONG_FORMAT "%lx"
 #endif
 
 #ifndef SOAP_LONG_FORMAT
-#define SOAP_LONG_FORMAT "%lld"		/* printf format for 64 bit ints */
+# define SOAP_LONG_FORMAT "%lld"	/* printf format for 64 bit ints */
 #endif
 #ifndef SOAP_ULONG_FORMAT
-#define SOAP_ULONG_FORMAT "%llu"	/* printf format for unsigned 64 bit ints */
+# define SOAP_ULONG_FORMAT "%llu"	/* printf format for unsigned 64 bit ints */
 #endif
 #ifndef SOAP_XLONG_FORMAT
-#define SOAP_XLONG_FORMAT "%llx"	/* printf format for unsigned 64 bit hex ints */
+# define SOAP_XLONG_FORMAT "%llx"	/* printf format for unsigned 64 bit hex ints */
 #endif
 
 extern int yylineno;
@@ -132,8 +124,8 @@ typedef	int Token;
 
 typedef	enum Type
 {	Tnone,
-	Tvoid,		/* primitive types */
-	Tchar,
+	Tvoid,
+	Tchar,		/* primitive types from here*/
 	Twchar,
 	Tshort,
 	Tint,
@@ -147,15 +139,18 @@ typedef	enum Type
 	Tuint,
 	Tulong,
 	Tullong,
+        Tsize,
 	Ttime,
 	Tenum,
-	Tclass,		/* compound types */
+	Tenumsc,
+	Tclass,		/* compound types from here */
 	Tstruct,
 	Tunion,
-	Tpointer,
-	Treference,
-	Tarray,
-	Ttemplate,
+	Tpointer,	/* pointer T* */
+	Treference,	/* reference T& */
+	Trvalueref,	/* C+11 rvalue reference T&& */
+	Tarray,		/* fixed size array T[N] */
+	Ttemplate,	/* template class<T> */
 	Tfun
 } Type;
 
@@ -171,16 +166,20 @@ typedef	enum Storage
 	Svirtual	= 0x000020,
 	Sconst		= 0x000040,
 	Sconstobj	= 0x000080,
-	Sconstptr	= 0x000100,
-	Sfriend		= 0x000200,
-	Sinline		= 0x000400,
-	Sabstract	= 0x000800,
-	SmustUnderstand	= 0x001000,
-	Sreturn		= 0x002000,
-	Sattribute	= 0x004000,
-	Sexplicit	= 0x008000,
-	Sprivate	= 0x010000,
-	Sprotected	= 0x020000
+	Sfinal		= 0x000100,
+	Soverride	= 0x000200,
+	Sconstptr	= 0x000400,
+	Sfriend		= 0x000800,
+	Sinline		= 0x001000,
+	Sabstract	= 0x002000,
+	SmustUnderstand	= 0x004000,
+	Sreturn		= 0x008000,
+	Sattribute	= 0x010000,
+	Sspecial	= 0x020000,
+	Sexplicit	= 0x040000,
+	Sprivate	= 0x080000,
+	Sprotected	= 0x100000,
+	Smutable        = 0x200000
 } Storage;
 
 typedef	enum Level { INTERNAL, GLOBAL, PARAM, LOCAL } Level;
@@ -188,25 +187,29 @@ typedef	enum Level { INTERNAL, GLOBAL, PARAM, LOCAL } Level;
 #define mknone()	mktype(Tnone,     NULL, 0)
 #define mkvoid()	mktype(Tvoid,     NULL, 0)
 #define mkbool()	mktype(Tenum,     booltable, 4)
-#define mkchar()	mktype(Tchar,     NULL, 1)
-#define mkwchart()	mktype(Twchar,    NULL, 4)
-#define mkshort()	mktype(Tshort,    NULL, 2)
-#define mkint()		mktype(Tint,      NULL, 4)
-#define mklong()	mktype(Tlong,     NULL, 8)
-#define mkllong()	mktype(Tllong,    NULL, 8)
+#define mkchar()	mktype(Tchar,     NULL, 1)      /* int8_t */
+#define mkwchart()	mktype(Twchar,    NULL, 4)      /* wchar_t */
+#define mkshort()	mktype(Tshort,    NULL, 2)      /* int32_t */
+#define mkint()		mktype(Tint,      NULL, 4)      /* int32_t */
+#define mklong()	mktype(Tlong,     NULL, 8)      /* int32_t */
+#define mkllong()	mktype(Tllong,    NULL, 8)      /* int64_t */
 #define mkfloat()	mktype(Tfloat,    NULL, 4)
 #define mkdouble()	mktype(Tdouble,   NULL, 8)
 #define mkldouble()	mktype(Tldouble,  NULL, 16)	/* long double */
-#define mkuchar()	mktype(Tuchar,    NULL, 1)	/* unsigned char */
-#define mkushort()	mktype(Tushort,   NULL, 2)	/* unsigned short */
-#define mkuint()	mktype(Tuint,     NULL, 4)	/* unsigned int */
-#define mkulong()	mktype(Tulong,    NULL, 8)	/* unsigned long */
-#define mkullong()	mktype(Tullong,   NULL, 8)	/* unsigned long */
+#define mkuchar()	mktype(Tuchar,    NULL, 1)	/* uint8_t unsigned char */
+#define mkushort()	mktype(Tushort,   NULL, 2)	/* utin16_t unsigned short */
+#define mkuint()	mktype(Tuint,     NULL, 4)	/* uint32_t unsigned int */
+#define mkulong()	mktype(Tulong,    NULL, 8)	/* uint64_t unsigned long */
+#define mkullong()	mktype(Tullong,   NULL, 8)	/* uint64_t unsigned long long */
+#define mksize()	mktype(Tsize,     NULL, 8)      /* transient size_t */
 #define mktimet()	mktype(Ttime,     NULL, 4)
 #define mkenum(t)	mktype(Tenum,	  t,    4)
-#define mkmask(t)	mktype(Tenum,	  t,    8)
+#define mkenumsc(t)	mktype(Tenumsc,   t,    4)
+#define mkmask(t)	mktype(Tenum,	  t,    9)
+#define mkmasksc(t)	mktype(Tenumsc,	  t,    9)
 #define	mkpointer(t)	mktype(Tpointer,  t,    4)
 #define	mkreference(t)	mktype(Treference,t,    4)
+#define	mkrvalueref(t)	mktype(Trvalueref,t,    4)
 #define	mkclass(t, w)	mktype(Tclass,    t,    w)
 #define	mkstruct(t, w)	mktype(Tstruct,   t,    w)
 #define	mkunion(t, w)	mktype(Tunion,    t,    w)
@@ -215,61 +218,72 @@ typedef	enum Level { INTERNAL, GLOBAL, PARAM, LOCAL } Level;
 #define mkstring()	mkpointer(mkchar())
 
 typedef struct Symbol
-{	char	*name;
-	Token	token;
-	struct	Symbol *next;
+{	char		*name;
+	Token		token;
+	struct Symbol	*next;
 } Symbol;
 
 Symbol	*install(const char*, Token), *lookup(const char*), *gensym(const char*), *gensymidx(const char*, int);
 
 typedef	struct Tnode
-{	Type	type;
-	void	*ref;
-	Symbol	*id;	/* struct/class/union/enum name */
-	Symbol	*base;	/* base class name */
-	Symbol	*sym;	/* typedef name */
-	struct	Entry *response; /* funcs only: points to response struct */
-	int	width;
-	int	transient;
-	const char *imported;
-	struct	Tnode *next;
-        Bool	generated;
-        Bool	wsdl;
-	int	num;
-	char	*pattern;
-	long	minLength;
-	long	maxLength;
+{	Type		type;
+	void		*ref;
+	Symbol		*id;	/* struct/class/union/enum name */
+	Symbol		*base;	/* base class name */
+	Symbol		*sym;	/* typedef name */
+	Symbol		*synonym;	/* synonymous typedef base name for 'typedef base id */
+	Symbol		*extsym;	/* typedef sym of external type w/ custom serializer */
+	struct Entry	*response; /* funcs only: points to response struct */
+	int		width;
+	int		transient;
+	const char	*imported;
+	struct Tnode	*next;
+	Bool		visited;
+	Bool		recursive;	/* recursive data type */
+        Bool		generated;
+        Bool		wsdl;
+	int		num;
+	Bool		hasmin;
+	Bool		hasmax;
+	Bool		incmin;
+	Bool		incmax;
+	double		min;
+	double		max;
+	const char	*pattern;
 } Tnode;
 
 typedef	union Value {
-	LONG64	i;
-	double	r;
-	char	*s;
+	LONG64		i;
+	double		r;
+	const char	*s;
 } Value;
 
 typedef	struct IDinfo {
-	Tnode	*typ;
-	Storage	sto;
-	Bool	hasval;		/* if true, identifier is constant */
-	Value	val;		/* ... with this value */
-	int	offset;
-	long	minOccurs;
-	long	maxOccurs;
+	Tnode		*typ;
+	Storage		sto;
+	Bool		hasval;		/* if true, identifier is constant */
+	Value		val;		/* ... with this value */
+	int		offset;
+	LONG64		minOccurs;
+	LONG64		maxOccurs;
+	Bool		nillable;
 } IDinfo;
 
 typedef	struct Entry {
-	Symbol	*sym;
-	IDinfo	info;
-	Level	level;
-	int	lineno;
-	struct	Entry *next;
+	Symbol		*sym;
+	const char	*tag;
+	IDinfo		info;
+	Level		level;
+	const char      *filename;
+	int		lineno;
+	struct Entry	*next;
 } Entry;
 
 typedef	struct Table {
-	Symbol	*sym;
-	Level	level;
-	Entry	*list;
-	struct	Table *prev;
+	Symbol		*sym;
+	Level		level;
+	Entry		*list;
+	struct Table 	*prev;
 } Table;
 
 typedef struct FNinfo {
@@ -277,68 +291,86 @@ typedef struct FNinfo {
 	Table	*args;
 } FNinfo;
 
-
 typedef	struct Node {
-	Tnode	*typ;
-	Storage	sto;
-	Bool	hasval;		/* if true, this node has a constant value */
-	Value	val;		/* ... this is the value */
-	long	minOccurs;
-	long	maxOccurs;
-	char	*pattern;
+	Tnode		*typ;
+	Storage		sto;
+	Bool		hasval;		/* if true, this node has a constant value */
+	Value		val;		/* ... this is the value */
+	Bool		hasmin;
+	Bool		hasmax;
+	Bool		incmin;
+	Bool		incmax;
+	LONG64		minOccurs;
+	LONG64		maxOccurs;
+	double		min;
+	double		max;
+	Bool		nillable;
+	const char	*pattern;
 } Node;
 
-#define ACTION		0
-#define RESPONSE_ACTION	1
-#define HDRIN		2	
-#define HDROUT		4
-#define MIMEIN		8
-#define MIMEOUT		16
-#define COMMENT		32
-#define ENCODING	64
-#define RESPONSE_ENCODING 128
-#define STYLE		256
-#define FAULT		512
+#define ACTION		        0x0000
+#define REQUEST_ACTION	        0x0001
+#define RESPONSE_ACTION	        0x0002
+#define FAULT_ACTION	        0x0004
+#define HDRIN		        0x0010	
+#define HDROUT		        0x0020
+#define MIMEIN		        0x0040
+#define MIMEOUT		        0x0080
+#define COMMENT		        0x0100
+#define ENCODING	        0x0200
+#define RESPONSE_ENCODING       0x0400
+#define STYLE                   0x0800
+#define FAULT                   0x1000
+#define PROTOCOL                0x2000
 
 typedef struct Data
-{	struct Data *next;
-	char *name;
-	char *part;
+{	struct Data	*next;
+	const char	*name;
+	const char	*text;
 } Data;
 
 typedef struct Method
-{	struct Method *next;
-	char *name;
-	short mess; /* see #defines above */
-	char *part;
+{	struct Method	*next;
+	const char	*name;
+	short		mess; /* see #defines above */
+	const char	*part;
 } Method;
 
 typedef struct Service
-{	struct Service *next;
-	char *ns;
-	char *name;
-	char *porttype;
-	char *portname;
-	char *binding;
-	char *definitions;
-	char *transport;
-	char *URL;
-	char *executable;
-	char *import;
-	char *URI;
-	char *WSDL;
-	char *style;
-	char *encoding;
-	char *elementForm;
-	char *attributeForm;
-	char *documentation;
-	struct Method *list;
-	struct Data *data;
+{	struct Service	*next;
+	const char	*ns;
+	const char	*name;
+	const char	*porttype;
+	const char	*portname;
+	const char	*binding;
+	const char	*definitions;
+	const char	*transport;
+	const char	*URL;
+	const char	*executable;
+	const char	*import;
+	const char	*URI;
+	const char	*URI2;
+	const char	*WSDL;
+	const char	*style;
+	const char	*encoding;
+	const char	*protocol;
+	int		xsi_type;
+	const char	*elementForm;
+	const char	*attributeForm;
+	const char	*documentation;
+	struct Method	*list;
+	struct Data	*data;
 } Service;
 
+typedef struct XPath
+{	struct XPath	*next;
+	const char	*name;
+	const char	*path;
+} XPath;
+
 typedef struct Pragma
-{	struct Pragma *next;
-	char *pragma;
+{	struct Pragma	*next;
+	const char	*pragma;
 } Pragma;
 
 extern Entry *enter(Table*, Symbol*), *entry(Table*, Symbol*), *reenter(Table*, Symbol*), *enumentry(Symbol*);
@@ -366,39 +398,58 @@ extern Entry *unlinklast(Table*);
 
 extern FILE *fmsg;
 
+extern int soap_version;
+
+extern const char *copt;
+
 extern int aflag;
-extern int vflag;
-extern int wflag;
+extern int Aflag;
+extern int bflag;
 extern int cflag;
+extern int c11flag;
 extern int Cflag;
 extern int eflag;
+extern int Ecflag;
+extern int Edflag;
+extern int Etflag;
+extern unsigned long fflag;
 extern int iflag;
+extern int jflag;
 extern int mflag;
 extern int nflag;
 extern int nflag;
 extern int lflag;
 extern int Lflag;
+extern int Qflag;
 extern int sflag;
+extern int rflag;
 extern int Sflag;
+extern int Tflag;
 extern int tflag;
+extern int uflag;
+extern int vflag;
+extern int wflag;
 extern int xflag;
+extern int yflag;
 extern int zflag;
 extern char dirpath[1024];
-extern char filename[1024];
-extern char *prefix;
-extern char *importpath;
+extern const char *filename;
+extern const char *prefix;
+extern const char *fprefix;
+extern const char *importpath;
 extern int custom_header;
 extern int custom_fault;
 extern Pragma *pragmas;
 extern Service *services;
-extern char *namespaceid;
+extern XPath *xpaths;
+extern const char *namespaceid;
 extern int transient;
 extern int imports;
-extern char *imported;
+extern const char *imported;
 extern int typeNO;
 
-extern char *envURI;
-extern char *encURI;
-extern char *rpcURI;
-extern char *xsiURI;
-extern char *xsdURI;
+extern const char *envURI;
+extern const char *encURI;
+extern const char *rpcURI;
+extern const char *xsiURI;
+extern const char *xsdURI;

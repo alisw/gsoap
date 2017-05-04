@@ -45,7 +45,8 @@ A commercial use license is available from Genivia, Inc., contact@genivia.com
 
 #include "soapH.h"
 #include "wsademo.nsmap"
-#include "wsaapi.h"
+
+#include "wsaapi.h" /* from plugin/wsaapi.h */
 
 /******************************************************************************\
  *
@@ -53,14 +54,14 @@ A commercial use license is available from Genivia, Inc., contact@genivia.com
  *
 \******************************************************************************/
 
-const char *RequestMessageID = "uuid:X";	/* just a fake uuid for demo */
-const char *ResponseMessageID = "uuid:Y";	/* just a fake uuid for demo */
-const char *FromAddress = "http://localhost:11000";
-const char *ToAddress = "http://localhost:11001";
+const char *FromAddress    = "http://localhost:11000";
+const char *ToAddress      = "http://localhost:11001";
 const char *ReplyToAddress = "http://localhost:11002";
 const char *FaultToAddress = "http://localhost:11003";
-const char *RequestAction = "urn:wsademo/wsademoPort/wsademo";
-const char *ResponseAction = "urn:wsademo/wsademoPort/wsademoResult";
+
+/* the SOAP and WSA actions, as defined in wsdldemo.h service definitions */
+const char *RequestAction  = "urn:wsademo/wsademoPort/wsademo";
+const char *ResponseAction = "urn:wsademo/wsademoPort/wsademoResponse";
 
 /******************************************************************************\
  *
@@ -69,8 +70,11 @@ const char *ResponseAction = "urn:wsademo/wsademoPort/wsademoResult";
 \******************************************************************************/
 
 int main(int argc, char **argv)
-{ struct soap *soap = soap_new1(SOAP_XML_INDENT);
+{
+  struct soap *soap = soap_new1(SOAP_XML_INDENT);
+
   soap_register_plugin(soap, soap_wsa);
+
   if (argc < 2)
   { /* no args: act as CGI service over stdin/out */
     if (soap_serve(soap))
@@ -79,7 +83,9 @@ int main(int argc, char **argv)
     }
   }
   else
-  { int port = atoi(argv[1]);
+  {
+    int port = atoi(argv[1]);
+
     if (port)
     { /* stand-alone server serving messages over port */
       soap->bind_flags = SO_REUSEADDR;
@@ -100,7 +106,10 @@ int main(int argc, char **argv)
     }
     else
     { /* client */
-      struct ns__wsademoResult r;
+      struct ns__wsademoResult res;
+      const char *RequestMessageID;
+
+      RequestMessageID = soap_wsa_rand_uuid(soap);
       soap_wsa_request(soap, RequestMessageID, ToAddress, RequestAction);
       if (argc >= 3)
       { if (strchr(argv[2], 'f'))
@@ -118,11 +127,12 @@ int main(int argc, char **argv)
         if (strchr(argv[2], 'e'))
           soap_wsa_add_FaultTo(soap, FaultToAddress);
       }
-      if (soap_call_ns__wsademo(soap, ToAddress, NULL, argv[1], &r))
+      if (soap_call_ns__wsademo(soap, ToAddress, NULL, argv[1], &res))
       {
 #ifdef SOAP_WSA_2005
         wsa5__FaultCodesType fault;
-	char *info;
+	const char *info;
+
         if (soap->error == 202)	/* HTTP ACCEPTED */
           printf("Request was accepted\n");
         else if (soap_wsa_check_fault(soap, &fault, &info))
@@ -145,8 +155,8 @@ int main(int argc, char **argv)
 	  soap_print_fault(soap, stderr);
 #endif
       }
-      else if (r.out)
-        printf("Result = %s\n", r.out);
+      else if (res.out)
+        printf("Result = %s\n", res.out);
     }
   }
   soap_destroy(soap);
@@ -158,16 +168,19 @@ int main(int argc, char **argv)
 
 /******************************************************************************\
  *
- *	Service Operation
+ *	Service Operation of Main Server
  *
 \******************************************************************************/
 
 int ns__wsademo(struct soap *soap, char *in, struct ns__wsademoResult *result)
-{ if (soap_wsa_check(soap))
+{
+  const char *ResponseMessageID;
+  if (soap_wsa_check(soap))
     return soap->error;
+  printf("Received '%s'\n", in?in:"(null)");
   /* simulate a wsa Fault */
-  if (!strcmp(in, "error"))
-  {
+  if (in && !strcmp(in, "error"))
+  { printf("Simulating WS-Addressing Fault\n");
 #if defined(SOAP_WSA_2005)
     return soap_wsa_error(soap, SOAP_WSA(EndpointUnavailable), ToAddress);
 #elif defined(SOAP_WSA_2003)
@@ -177,45 +190,53 @@ int ns__wsademo(struct soap *soap, char *in, struct ns__wsademoResult *result)
 #endif
   }
   /* simulate a user-defined SOAP Fault */
-  if (!strcmp(in, "fault"))
+  if (in && !strcmp(in, "fault"))
+  { printf("Simulating Server Operation Fault\n");
     return soap_wsa_sender_fault(soap, "The demo service wsademo() operation returned a fault", NULL);
+  }
   result->out = in;
+  ResponseMessageID = soap_wsa_rand_uuid(soap);
   return soap_wsa_reply(soap, ResponseMessageID, ResponseAction);
 }
 
 /******************************************************************************\
  *
- *	Relayed Response Handler
+ *	Relayed Response Handler for ReplyTo Server
  *
 \******************************************************************************/
 
 int ns__wsademoResult(struct soap *soap, char *out)
-{ if (soap_wsa_check(soap))
-    return soap_send_empty_response(soap, 500);
+{
+  if (soap_wsa_check(soap))
+    return soap_send_empty_response(soap, 500); /* HTTP 500 error */
   printf("Received Result = %s\n", out?out:"");
-  return soap_send_empty_response(soap, SOAP_OK);
+  return soap_send_empty_response(soap, SOAP_OK); /* HTTP 202 */
 }
 
 /******************************************************************************\
  *
- *	Relayed SOAP-ENV:Fault Handler
+ *	Relayed SOAP-ENV:Fault Handler for FaultTo Server
  *
 \******************************************************************************/
 
 int SOAP_ENV__Fault(struct soap *soap, char *faultcode, char *faultstring, char *faultactor, struct SOAP_ENV__Detail *detail, struct SOAP_ENV__Code *SOAP_ENV__Code, struct SOAP_ENV__Reason *SOAP_ENV__Reason, char *SOAP_ENV__Node, char *SOAP_ENV__Role, struct SOAP_ENV__Detail *SOAP_ENV__Detail)
-{ printf("Received Fault:\n");
-  /* populate the fault struct so we can print it */
+{
+  printf("Received Fault:\n");
+  /* populate the fault struct from the operation arguments to print it */
   soap_fault(soap);
+  /* SOAP 1.1 */
   soap->fault->faultcode = faultcode;
   soap->fault->faultstring = faultstring;
   soap->fault->faultactor = faultactor;
   soap->fault->detail = detail;
+  /* SOAP 1.2 */
   soap->fault->SOAP_ENV__Code = SOAP_ENV__Code;
   soap->fault->SOAP_ENV__Reason = SOAP_ENV__Reason;
   soap->fault->SOAP_ENV__Node = SOAP_ENV__Node;
   soap->fault->SOAP_ENV__Role = SOAP_ENV__Role;
   soap->fault->SOAP_ENV__Detail = SOAP_ENV__Detail;
+  /* set error */
   soap->error = SOAP_FAULT;
   soap_print_fault(soap, stdout);
-  return SOAP_OK;
+  return soap_send_empty_response(soap, SOAP_OK); /* HTTP 202 Accepted */
 }

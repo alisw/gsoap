@@ -108,7 +108,7 @@ int main(int argc, char **argv)
 }
 
 ns__Object::ns__Object()
-{ name = "Object";
+{ name = (char*)"Object";
 }
 
 ns__Object::ns__Object(const char *name)
@@ -124,7 +124,7 @@ void ns__Object::print()
 }
 
 ns__Shape::ns__Shape()
-{ name = "Shape";
+{ name = (char*)"Shape";
   sides = 0;
 }
 
@@ -142,7 +142,7 @@ void ns__Shape::print()
 }
 
 ns__Square::ns__Square()
-{ name = "Square";
+{ name = (char*)"Square";
   ns__Shape::sides = 4;
 }
 

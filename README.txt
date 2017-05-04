@@ -11,23 +11,28 @@ also supports WS-Addressing and WS-Security, with several other WS-* available
 or under development. See the official open-source gSOAP website
 http://gsoap2.sourceforge.net for project status and latest news.
 
-* The gSOAP 'soapcpp2' compiler and 'stdsoap2' runtime are stable since
-  version release 2.1.3.
+* The gSOAP 'soapcpp2' compiler and code generator and 'stdsoap2' runtime
+  engine are stable since version release 2.1.3.
 
-* The gSOAP 'wsdl2h' WSDL parser is stable since wsdl2h version release 1.1.0.
-  The WSDL parser fully supports WSDL 1.1 and XML schemas.
+* The gSOAP 'wsdl2h' WSDL/schema parser and code generator is stable since
+  wsdl2h version release 1.1.0. The 'wsdl2h' tool fully supports WSDL 1.1,
+  XML schemas, WS-Policy, and other WS-* protocols (details in the fact sheet).
 
 The software is provided "as is", without any warranty. However, gSOAP
-has received a lot of support from users and has been extensively tested
-in the real world. We also continue to improve gSOAP and add new features.
+has been extensively field-tested in production-quality software development.
+We continue to improve gSOAP and add new features.
+
+See NOTES.txt for distributed notes and an overview of the package contents.
+See INSTALL.txt for installation instructions.
+See LICENSE.txt for software licensing.
 
 ================================================================================
 WHAT'S COOL?
 ================================================================================
 
-The gSOAP WSDL parser 'wsdl2h' is a gSOAP application itself, which
-demonstrates the capabilities of the generic XML handling by the toolkit to
-parse WSDL, XML schemas, and SOAP/XML.
+The gSOAP 'wsdl2h' tool is a gSOAP application itself, which demonstrates the
+capabilities of the generic XML handling by the toolkit to parse WSDL, XML
+schemas, and SOAP/XML.
 
 The gSOAP toolkit supports streaming technologies to expedite SOAP/XML and
 MTOM/MIME attachment transfers of potentially unlimited data lengths.
@@ -41,8 +46,53 @@ transient format and not buffered. Many optimizations have been applied to
 reduce resource requirements and to expedite XML parsing.
 
 The gSOAP toolkit provides stand-alone HTTP(S) web server functionality as well
-as Apache mod and IIS hooks. Also CGI and FastCGI is possible. A web server
-example demonstrating the stand-alone functionality is included in the package.
+as Apache mod and IIS hooks (located in gsoap/mod_gsoap). Also CGI and FastCGI
+are supported. A web server example demonstrating the stand-alone functionality
+is included in the package.
+
+================================================================================
+FEATURES
+================================================================================
+
+XML data binding tools for C/C++
+XML schema <=> C/C++ type binding means XML and C/C++ data is type safe
+XML streaming auto-serialization of C/C++ data (with optional use of DOM)
+XML-RPC from/to JSON from/to C/C++ serialization (also in streaming mode)
+No need to alter C/C++ types for serialization (declare type as 'volatile')
+WSDL 1.1/2.0, XSD 1.0/1.1, SOAP 1.1/1.2 compliant
+REST HTTP(S) 1.0/1.1 operations (GET,PUT,POST etc) for XML, JSON, etc
+Send and recieve XML over sockets, file FD, and C++ streams
+WS-I Basic Profile 1.0a, 1.1, and 1.2 compliant
+W3C schema patterns for data binding full test pattern coverage
+RSS 0.91, 0.92, 2.0 XML support
+MIME and MTOM attachment support (also in streaming mode)
+WS-Security XML authentication, signatures, encryption (also in streaming mode)
+WS-Policy 1.2, 1.5 and WS-SecurityPolicy 1.2 compliant
+WS-Addressing 2003/03, 2004/03, 2005/03 compliant
+WS-ReliableMessaging 1.0 and 1.1 compliant
+WS-Discovery 1.0/1.1
+UDDI v2 API
+NTLM authentication
+HTTP basic and digest authentication
+SSL/TLS communications with SSL session caching (OpenSSL or GNUTLS)
+Proxy and proxy authentication support
+Compression (HTTP compression and zlib)
+IPv4 and IPv6, including direct TCP and UDP data transfer
+SOAP-over-UDP
+Apache 1.x and 2.0 modules
+IIS (ISAPI) and WinInet modules
+CGI and FastCGI support
+Stand-alone Web server included (multithreaded, SSL, compression)
+Integrated memory management with deallocation and leak detection
+Plug-ins for additional capabilities
+Internationalization/localization support (UTF8, UCS4, MB encodings, etc)
+WSDL/XSD conversion to C or C++ and vice versa
+Portable to small devices (WinCE, Palm, Symbian, VxWorks, Andriod, iPhone)
+Auto-test server code generation for (dummy) server testing
+Automatic XML document and message generation from WSDL and XSD
+C/C++ (cyclic) object graph auto-serialization (with SOAP id-href encoding)
+STL container auto-serialization and custom C++ container auto-serialization
+Over 40 example client and server applications included
 
 ================================================================================
 PACKAGE
@@ -52,8 +102,7 @@ This distribution package contains platform-independent source code. Pre-built
 'soapcpp2' and 'wsdl2h' binaries are included for the following platforms:
 
 	* Win32 i386 compatible
-	* Linux i386 compatible
-	* MAC OS X universal
+	* MAC OS X
 
 The binaries are located in 'gsoap/bin'.
 
@@ -64,125 +113,24 @@ To configure and build the toolkit binaries and libraries, please see the
 installation instructions in the 'INSTALLATION' section below.
 
 ================================================================================
-INSTALLATION
-================================================================================
-
-This part explains how gSOAP is build on your platform.
-
-Requirements to build the soapcpp2 and wsdl2h tools:
-
-1. automake tools (and GNU m4)
-2. bison (or yacc) and flex
-3. OpenSSL (optional) and Zlib (optional) for HTTPS and compression
-4. Pthreads or win32 threads (optional)
-
-Some example applications won't compile without OpenSSL and Pthreads.
-
-Win32 binaries and project code is included in this package. Win32 users can
-start right away without autoconf/automake. The 'soapcpp2.exe' binary compiler
-and 'wsdl2h.exe' WSDL parser are included in 'gsoap/bin/win32', see also the
-'gsoap/VisualStudio2005' folder for the tool project files.
-
-Symbian instructions and example code is located in 'gsoap/Symbian'.
-
-Palm OS support is no longer available for this release. The latest stable
-release with Palm OS support is gSOAP 2.7.8c.
-
-To build gSOAP on your platform using autoconf/automake, please enter the
-following commands:
-
-	$ ./configure
-	$ make
-	$ make install
-
-This will install the executables and libraries on your system (and you need
-root access to do so).
-
-To build without OpenSSL support, use:
-
-	$ ./configure --disable-openssl
-	$ make
-	$ make install
-
-To configure and build the examples, use the --enable-samples option:
-
-	$ ./configure --enable-samples
-
-To configure and build the libraries in DEBUG mode, which produces 'SENT.log',
-'RECV.log' and 'TEST.log' files for message logs and gSOAP engine event logs,
-use:
-
-	$ ./configure --enable-debug
-
-If you want to install the executables in your local folder, enter:
-
-	$ ./configure
-	$ make
-	$ make install exec_prefix=$HOME
-
-To build your projects, you need the following executables:
-
-	soapcpp2	the gSOAP stub/skeleton compiler
-	wsdl2h		the gSOAP WSDL parser
-
-These are created after 'make' in 'gsoap/src' and 'gsoap/wsdl'. Note that
-pre-built executables for select platforms can be found in 'gsoap/bin'.
-
-You also need the following libraries (build from stdsoap2.c[pp]):
-
-	libgsoap++.a		C++ runtime
-	libgsoapck++.a		C++ runtime with HTTP cookie support
-	libgsoapssl++.a		C++ runtime with cookies, zlib, and SSL
-	libgsoap.a		C runtime
-	libgsoapck.a		C runtime with HTTP cookie support
-	libgsoapssl.a		C runtime with cookies, zlib, and SSL
-
-This version of gSOAP requires SSL support with OpenSSL 0.9.6 or later.
-
-Alternatively, you can use the stdsoap2.c[pp] source code to build your project
-instead of the libraries (libraries are all derived from stdsoap2.c[pp]). See
-the gSOAP documentation on how to enable HTTP cookies, Zlib compression, and
-SSL support in stdsoap2.c[pp].
-
-For developers: there is a command file ./makemake
-It can be used to generate the required ./configure script.
-This will create the Makefiles:
-
-	$ ./makemake
-	$ make
-
-You can also execute the following steps from the commandline:
-
-	$ aclocal
-	$ autoheader
-	$ automake --add-missing
-	$ autoconf
-	$ automake
-	$ ./configure --enable-samples
-	$ make
-
-If the above fails, try the following:
-
-	* remove autom4te.cache
-	* get the latest config.guess and config.sub from GNU
-
-================================================================================
 GETTING STARTED
 ================================================================================
 
-The gSOAP WSDL parser 'wsdl2h' converts WSDL into a gSOAP header file for
-processing with the gSOAP stub compiler 'soapcpp2' to generate XML
-serialization, stubs, and skeletons code to build Web services applications.
-Use the WSDL parser 'wsdl2h' followed by 'soapcpp2' to translate an entire set
-of WSDL and XML schemas into representative C or C++ data structures and
-associated XML parsers. You can also use the gSOAP compiler 'soapcpp2' directly
-on existing C/C++ data structure declarations to create XML serialization
-routines for these types to simplify the storage of data in XML.
+Follow the installation instructions in INSTALL.txt first.
+
+The gSOAP 'wsdl2h' tool converts WSDLs into a gSOAP header file for processing
+with the gSOAP code gnerator 'soapcpp2' to generate XML serialization, stubs,
+and skeletons code to build Web services applications.  Use 'wsdl2h' followed
+by 'soapcpp2' to translate an entire set of WSDL and XML schemas into
+representative C or C++ data structures and associated XML parsers. You can
+also use the gSOAP 'soapcpp2' tool directly on existing C/C++ data structure
+declarations to create XML serialization routines for these types to simplify
+the storage of data in XML.
 
 Example translation of WSDL to code in two steps:
 
 	$ wsdl2h -s -o calc.h http://www.cs.fsu.edu/~engelen/calc.wsdl
-	$ soapcpp2 calc.h
+	$ soapcpp2 -CL -I/path/to/gsoap/import calc.h
 
 The 'calc.h' header file contains the services and XML schema types represented
 in C/C++, together with other useful information copied from the WSDL related
@@ -200,20 +148,35 @@ files for your project:
 
 To compile a client, all you need to do is to compile and link 'soapC.cpp',
 'soapClient.cpp', and 'stdsoap2.cpp' (or the installed libgsoap++, see
-INSTALLATION below) with your code. In your source code, add:
+INSTALLATION) with your code. To access the service in your code:
 
 	#include "soapH.h"
 	#include "calc.nsmap"
+        main()
+	{ struct soap *soap = soap_new(); // alloc 'soap' engine context
+	  double result;
+	  if (soap_call_ns2__add(soap, NULL, NULL, 1.0, 2.0, result) == SOAP_OK)
+	    std::cout << "The sum of 1.0 and 2.0 is " << result << std::endl;
+	  else
+	    soap_stream_fault(soap, std::cerr);
+	  soap_destroy(soap); // dealloc serialization data
+	  soap_end(soap);     // dealloc temp data
+	  soap_free(soap);    // dealloc 'soap' engine context
+	}
 
-This imports all soapcpp-generated definitions and the namespace mapping table.
+First, this imports all soapcpp-generated definitions and the namespace mapping
+table. Then the soap_call_ns2__add() invokes the service. This function is
+generated from the calc.h file by soapcpp2. The calc.h file includes
+instructions on what functions to call.
 
-To develop a C++ client application based on proxies, use 'soapcpp2' option -i:
+To develop a C++ client application based on C++ proxy objects rather than
+C-like functions, use 'soapcpp2' option -j:
 
 	$ wsdl2h -s -o calc.h http://www.cs.fsu.edu/~engelen/calc.wsdl
-	$ soapcpp2 -i calc.h
+	$ soapcpp2 -j -CL -I/path/to/gsoap/import calc.h
 
 This generates 'soapcalcProxy.h' and 'soapcalcProxy.cpp' with a calcProxy
-class you can use to invoke the service. For example:
+class with service methods that you can use to invoke services. For example:
 
 	#include "soapcalcProxy.h"
 	#include "calc.nsmap"
@@ -224,18 +187,20 @@ class you can use to invoke the service. For example:
 	    std::cout << "The sum of 1.0 and 2.0 is " << result << std::endl;
   	  else
 	    service.soap_stream_fault(std::cerr);
+	  service.destroy(); // dealloc serialization and temp data
 	}
 
-Compile and link with 'soapC.cpp' and 'stdsoap2.cpp' (or -lgsoap++).
+Compile the above program and link with 'soapC.cpp', 'soapcalcProxy.cpp', and
+'stdsoap2.cpp' (or -lgsoap++).
 
 To develop a C client, use 'wsdl2h' option -c to generate pure C code.
 
 There are many options that you can use depending on the need to develop C
 applications, C++ with or without STL, or C++ proxy and server objects. In
 addition, the XML schema type mapping is defined by 'typemap.dat', located in
-the 'WS' folder. The 'typemap.dat' file is used to customize the 'wsdl2h'
-output. It is important to use this file for larger projects that depend in
-WS-* protocols, such as WS-Addressing and WS-Security.
+the project root and 'WS' folders. The 'typemap.dat' file is used to customize
+the 'wsdl2h' output. It is important to use this file for larger projects that
+depend in WS-* protocols, such as WS-Addressing and WS-Security.
 
 More information about the 'wsdl2h' and 'soapcpp2' tools and their options can
 be found in the gSOAP documentation and the Quick How-To page on the gSOAP Web
@@ -278,9 +243,7 @@ See LICENSE.txt
 COPYRIGHT
 ================================================================================
 
-gSOAP is copyrighted by Robert A. van Engelen, Genivia, Inc.
-Copyright (C) 2000-2008 Robert A. van Engelen, Genivia, Inc.
-All Rights Reserved.
+Copyright (C) 2000-2015 Robert van Engelen, Genivia, Inc. All Rights Reserved.
 
 ================================================================================
 USE RESTRICTIONS
@@ -328,9 +291,9 @@ INJURY OR LOSS OF HUMAN LIFE.
 EXTERNAL THIRD-PARTY LIBRARIES
 ================================================================================
 
-The gSOAP toolkit is mostly self-contained and does not require any third-party
-software to run in a basic configuration. When compression and SSL encryption
-are required the Zlib and OpenSSL libraries must be installed.
+The gSOAP toolkit is self-contained and does not require any third-party
+software to run in its standard configuration. When compression and SSL
+encryption are required the Zlib and OpenSSL libraries must be installed.
 
 To build the gSOAP 'soapcpp2' compiler, you must have Bison and Flex installed
 or the older Yacc and Lex equivalents. Note that licensing differs for Flex
@@ -348,8 +311,8 @@ compiler as a custom build.
 DISCLAIMER
 ================================================================================
 
-WE TRY OUR BEST TO PROVIDE YOU WITH "REAL-WORLD" EXAMPLES BUT WE CANNOT
-GUARANTEE THAT ALL CLIENT EXAMPLES CAN CONNECT TO THIRD PARTY WEB SERVICES
-WHEN THESE SERVICES ARE DOWN OR HAVE BEEN REMOVED.
+WE PROVIDE YOU WITH "REAL-WORLD" EXAMPLES BUT WE CANNOT GUARANTEE THAT ALL
+CLIENT EXAMPLES CAN CONNECT TO THIRD PARTY WEB SERVICES WHEN THESE SERVICES ARE
+DOWN OR HAVE BEEN REMOVED.
 
 ================================================================================

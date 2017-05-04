@@ -6,6 +6,8 @@
 	Compilation in C (see samples/calc/calc.h):
 	$ soapcpp2 -c calc.h
 	$ cc -o calcclient calcclient.c stdsoap2.c soapC.c soapClient.c
+	where stdsoap2.c is in the 'gsoap' directory, or use libgsoap:
+	$ cc -o calcclient calcclient.c soapC.c soapClient.c -lgsoap
 
 --------------------------------------------------------------------------------
 gSOAP XML Web services tools
@@ -39,6 +41,7 @@ A commercial use license is available from Genivia, Inc., contact@genivia.com
 #include "calc.nsmap"
 
 const char server[] = "http://websrv.cs.fsu.edu/~engelen/calcserver.cgi";
+/* = "http://localhost:8080"; to test against samples/webserver */
 
 int main(int argc, char **argv)
 { struct soap soap;
@@ -47,7 +50,7 @@ int main(int argc, char **argv)
   { fprintf(stderr, "Usage: [add|sub|mul|div|pow] num num\n");
     exit(0);
   }
-  soap_init(&soap);
+  soap_init1(&soap, SOAP_XML_INDENT);
   a = strtod(argv[2], NULL);
   b = strtod(argv[3], NULL);
   switch (*argv[1])

@@ -4,35 +4,42 @@ DISTRIBUTION NOTES
 To install gSOAP, unpack the archive. You will get the following files:
 
 README.txt	read this first
-LICENSE.txt	license information
+LICENSE.txt	licensing information, please read
+INSTALL.txt	installation instructions
 NOTES.txt	this file
-license.html	gSOAP public license (HTML), see LICENSE.txt
-license.pdf	gSOAP public license (PDF), see LICENSE.txt
+license.pdf	gSOAP public license APPLICABLE TO SOME PARTS, see LICENSE.txt
+factsheet.pdf	Quick overview of facts and features
 
 The 'gsoap' folder contains essential source code for the run-time libraries:
 
 stdsoap2.h	header file for stdsoap2.c[pp]
-stdsoap2.c	library and gSOAP runtime
-stdsoap2.cpp	library (identical to stdsoap2.c)
+stdsoap2.c	C library with the gSOAP engine, this is the source for libgsoap
+stdsoap2.cpp	C++ library (functionality identical to stdsoap2.c)
 dom.c		C DOM parser
-dom.cpp		C++ DOM parser
+dom.cpp		C++ DOM parser (functionality identical to dom.c)
 
 and the following folders:
 
-bin		binaries
-doc		documentation, including soapdoc2.html, soapdoc2.pdf
+bin		pre-built binaries of wsdl2h and soapcpp2 for Mac OS and Windows
+doc		documentation, including the user guide
 samples		examples
-extras		contributed extras
 import		#import-ed header files for soapcpp2 compiler
-plugin		plug-in examples
+plugin		plug-ins for advanced features
 custom		custom serializers for various data types
-mod_gsoap	contributed Apache mod_gsoap, IIS, and WinInet support
-src		gSOAP soapcpp2 compiler sources
-wsdl		WSDL parser wsdl2h sources
-WS		typemap.dat and WS-* protocol schemas
+mod_gsoap	Apache mod_gsoap, IIS, and WinInet support
+extras		contributed extras
+src		soapcpp2 tool source files
+wsdl		wsdl2h tool source files for WSDL and XSD translation
+WS		WS-typemap.dat and WS-* protocol schemas for plug-in development
 uddi2		UDDI v2
+Palm		Palm OS support (deprecated)
+Symbian		Symbian OS support
+TandemNonStop	Tandem NonStop OS support
+VisualStudio2005 To build soapcpp2 and wsdl2h for MS VS platforms 2005 and up
 
-All examples are available in the 'samples' subdirectory.
+The SOAP/XML client/server examples, XML-RPC, JSON, RSS, DOM parsing,
+WS-Security, SOAP/XML auto-testing services, XML databindings, and other
+examples of advanced features are available in the 'samples' subdirectory.
 
 The 'gsoap_mod' directory includes Apache 1.x and 2.0 mods for gSOAP, IIS, and
 WinInet support. WinInet allows gsoap to use the WinInet API instead of calls
@@ -43,5 +50,7 @@ the registry, deal with proxy configuration scripts, etc. Changes in the
 Additionally, this will allow gsoap to handle forms of authentication not yet
 supported natively, such as NTLM (Integrated Windows Authentication), etc.
 
-Contributions are included in the 'extras' directory and 'mod_gsoap'.
+Contributions are included in the 'extras' directory. All contributions are
+covered by the gSOAP public license, unless specifically stated otherwise in
+the contributed file(s).
 

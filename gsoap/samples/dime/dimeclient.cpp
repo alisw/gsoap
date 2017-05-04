@@ -132,7 +132,7 @@ int main(int argc, char **argv)
   if (argc < 3)
   { char *name;
     if (argc < 2)
-      name = "image.jpg";
+      name = (char*)"image.jpg";
     else
       name = argv[1];
     getImage(&soap, name);
@@ -172,7 +172,7 @@ static void putData(struct soap *soap, int argc, char **argv)
   { data[i - 2].__ptr = (unsigned char*)argv[i];
     // MUST set id or type to enable DIME
     // zero size indicates streaming DIME (this requires HTTP chunking)
-    data[i - 2].type = "";
+    data[i - 2].type = (char*)"";
   }
   if (soap_call_ns__putData(soap, endpoint, NULL, &data, &names))
     soap_print_fault(soap, stderr);
@@ -267,7 +267,7 @@ static void *dime_write_open(struct soap *soap, const char *id, const char *type
 { // we can return NULL without setting soap->error if we don't want to use the streaming callback for this DIME attachment
   FILE *handle = NULL;
   char *name;
-  // get file name from options (not '\0' terminated)
+  // get file name from options (here we assume it's not '\0' terminated), but the gsoap engine adds NULs to DIME options after reading content
   if (options)
   { size_t len = ((unsigned char)options[2] << 8) | ((unsigned char)options[3]); // option string length
     name = (char*)soap_malloc(soap, len + 1);

@@ -6,12 +6,19 @@
 
 	#import this file into your gSOAP .h file.
 
-	Add this line:
+	Add this line to typemap.dat to automate the mapping with wsdl2h:
+
 	xsd__decimal = #import "custom/long_double.h" | long double
-	to typemap.dat to automate the mapping with wsdl2h.
+
+	When using soapcpp2 option -q<name> or -p<name>, you must change
+	long_double.c as follows:
+
+		#include "soapH.h"  ->  #include "nameH.h"
+
+	Compile and link your code with custom/long_double.c
 
 gSOAP XML Web services tools
-Copyright (C) 2000-2008, Robert van Engelen, Genivia Inc., All Rights Reserved.
+Copyright (C) 2000-2015, Robert van Engelen, Genivia Inc., All Rights Reserved.
 This part of the software is released under ONE of the following licenses:
 GPL, the gSOAP public license, OR Genivia's license for commercial use.
 --------------------------------------------------------------------------------
@@ -26,7 +33,7 @@ WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
 for the specific language governing rights and limitations under the License.
 
 The Initial Developer of the Original Code is Robert A. van Engelen.
-Copyright (C) 2000-2008, Robert van Engelen, Genivia, Inc., All Rights Reserved.
+Copyright (C) 2000-2015, Robert van Engelen, Genivia, Inc., All Rights Reserved.
 --------------------------------------------------------------------------------
 GPL license.
 

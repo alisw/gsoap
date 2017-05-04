@@ -8,4 +8,5 @@ Description: SOAP C Web Services
 Version: @VERSION@
 Requires:
 Libs: -L${libdir} -lgsoap
-Cflags: -DWITH_DOM -I${includedir}
+Libs.private: @SAMPLE_EXTRA_LIBS@
+Cflags: @SOAPCPP2_IPV6@ -DWITH_DOM -I${includedir}

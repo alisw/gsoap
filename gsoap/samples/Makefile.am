@@ -4,7 +4,9 @@
 AUTOMAKE_OPTIONS = foreign 1.4
 
 SUBDIRS = \
-	calc calc++ dime dom events events++ factory factorytest gmt \
-	googleapi hello httpcookies lu magic mashup mashup++ \
-	mtom mtom-stream polytest roll router rss ssl udp varparam \
-	wsa wsse xml-rpc
+	autotest aws calc calc++ databinding dime dom oneway oneway++ \
+	factory factorytest \
+	gmt googleapi hello httpcookies lu magic mashup mashup++ \
+	chaining chaining++ primes \
+	mtom mtom-stream polytest roll router rss ssl template udp varparam \
+	wsa wsrm wsse wst xml-rpc-json rest

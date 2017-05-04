@@ -1,9 +1,9 @@
 /*	fault.h
 
+	Example SOAP Fault detail definitions, to demonstrate the use of env.h.
 	Defines optional SOAP Fault derail data structures
 
 	Copyright (C) 2000-2004 Robert A. van Engelen. All Rights Reserved.
-
 */
 
 /*
@@ -23,7 +23,7 @@ class _f__myData
 To return a fault from your service application:
 
 soap_sender_fault(soap, "An error occurred", NULL));	// set soap fault
-soap->fault->detail = (struct SOAP_ENV__Detail*)soap_malloc(soap, sizeof(struct SOAP_ENV__Fault));
+soap->fault->detail = (struct SOAP_ENV__Detail*)soap_malloc(soap, sizeof(struct SOAP_ENV__Detail));
 soap->fault->detail->__type = SOAP_TYPE__f__myData;
 soap->fault->detail->value = soap_new__f__myData(soap, -1);
 return SOAP_FAULT;
@@ -35,7 +35,7 @@ struct SOAP_ENV__Detail
 { struct f__myDataType f__myData;
   int __type;
   void *value;
-  char *__any;
+  char *__any;		// or use '_XML __any' to store literal XML content
 };
  
 */

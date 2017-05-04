@@ -42,7 +42,7 @@ A commercial use license is available from Genivia, Inc., contact@genivia.com
 
 #import "soap12.h"
 #import "xop.h"
-#import "xmime4.h"
+#import "xmime5.h"
 
 //gsoap m service name:		mtom_test
 //gsoap m service namespace:	http://www.genivia.com/wsdl/mtom_test.wsdl
@@ -62,7 +62,7 @@ struct x__DataType
   { _xop__Include xop__Include;
     struct xsd__base64Binary base64;
   } choice;
-  @char *xmime4__contentType;
+  @char *xmime5__contentType;
 };
 
 //gsoap x schema type-documentation: WrapperType wraps a sequence of data elements with MIME attachments or base64 binary data

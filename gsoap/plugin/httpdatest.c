@@ -5,7 +5,7 @@ httpdatest.c
 gSOAP HTTP Digest Authentication example application.
 
 gSOAP XML Web services tools
-Copyright (C) 2000-2005, Robert van Engelen, Genivia, Inc., All Rights Reserved.
+Copyright (C) 2000-2015, Robert van Engelen, Genivia, Inc., All Rights Reserved.
 
 --------------------------------------------------------------------------------
 gSOAP public license.
@@ -19,7 +19,7 @@ WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
 for the specific language governing rights and limitations under the License.
 
 The Initial Developer of the Original Code is Robert A. van Engelen.
-Copyright (C) 2000-2005, Robert van Engelen, Genivia, Inc., All Rights Reserved.
+Copyright (C) 2000-2015, Robert van Engelen, Genivia, Inc., All Rights Reserved.
 --------------------------------------------------------------------------------
 GPL license.
 
@@ -48,7 +48,19 @@ Requires OpenSSL
 Compile:
 
 soapcpp2 -c httpdatest.h
-cc -DWITH_OPENSSL -o httpdatest httpdatest.c soapC.c soapClient.c soapServer.c httpda.c md5evp.c threads.c stdsoap2.c -lssl -lcrypto -lz
+cc -DWITH_OPENSSL -o httpdatest httpdatest.c soapC.c soapClient.c soapServer.c httpda.c smdevp.c threads.c stdsoap2.c -lssl -lcrypto -lz
+
+Run server:
+
+./httpdatest 8080
+
+Run client test:
+
+./httpdatest http://127.0.0.1:8080 options
+
+with an option string consisting of:
+  c   chunking
+  z   compression
 
 */
 
@@ -63,19 +75,23 @@ int run_tests(int,char**);
 
 int main(int argc, char **argv)
 {
+  int port;
   if (argc < 2)
-    return run_serve(8080);
-  else if (argc < 3)
-    return run_serve(atoi(argv[1]));
+    return soap_serve(soap_new1(SOAP_XML_INDENT));
+  else if (argc < 3 && (port = atoi(argv[1])))
+    return run_serve(port);
   else
     return run_tests(argc, argv);
 }
 
 int run_serve(int port)
 {
-  struct soap *soap = soap_new();
+  struct soap *soap = soap_new1(SOAP_XML_INDENT);
   int ret;
-  soap_register_plugin(soap, http_da);
+
+  if (soap_register_plugin(soap, http_da))
+    exit(1);
+
   if (!soap_valid_socket(soap_bind(soap, NULL, port, 100)))
     soap_print_fault(soap, stderr);
   else
@@ -84,7 +100,7 @@ int run_serve(int port)
     soap->accept_timeout = 3600; /* let server time out after one hour */
     for (;;)
     {
-      int sock = soap_accept(soap);
+      SOAP_SOCKET sock = soap_accept(soap);
       if (!soap_valid_socket(sock))
       {
         if (soap->errnum)
@@ -104,23 +120,37 @@ int run_serve(int port)
     } 
   }
   ret = soap->error;
+  soap_destroy(soap);
   soap_end(soap);
-  soap_done(soap);
-  free(soap);
+  soap_free(soap);
   return ret;
 }
 
 int run_tests(int argc, char **argv)
 {
-  struct soap *soap = soap_new();
+  struct soap *soap = soap_new1(SOAP_XML_INDENT);
   struct ns__echoString r;
   char *endpoint, *arg;
   int ret;
 
-  soap_register_plugin(soap, http_da);
+  if (soap_register_plugin(soap, http_da))
+    exit(1);
 
   endpoint = argv[1];
-  arg = argv[2];
+  if (argc >= 3)
+  {
+    arg = argv[2];
+
+    if (strchr(arg, 'c'))
+      soap_set_omode(soap, SOAP_IO_CHUNK); /* use HTTP chunking */
+
+    if (strchr(arg, 'z'))
+      soap_set_omode(soap, SOAP_ENC_ZLIB); /* use HTTP compression */
+  }
+  else
+  {
+    arg = "Hello world!";
+  }
 
   if (soap_call_ns__echoString(soap, endpoint, NULL, arg, &r))
   {
@@ -152,15 +182,15 @@ int run_tests(int argc, char **argv)
   if (soap->error)
     soap_print_fault(soap, stderr);
   ret = soap->error;
+  soap_destroy(soap);
   soap_end(soap);
-  soap_done(soap);
-  free(soap);
+  soap_free(soap);
   return ret;
 }
 
 int ns__echoString(struct soap *soap, char *arg, struct ns__echoString *response)
 {
-  if (soap->userid && soap->passwd)	/* Basic authentication: we may want to reject this since the password was send in the clear */
+  if (soap->userid && soap->passwd)	/* Basic authentication: we may want to reject this since the password was sent in the clear */
   { if (!strcmp(soap->userid, "Mufasa")
      && !strcmp(soap->passwd, "Circle Of Life"))
     {

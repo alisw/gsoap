@@ -46,7 +46,7 @@ A commercial use license is available from Genivia, Inc., contact@genivia.com
 #include "soapH.h"
 #include "varparam.nsmap"
 
-char *endpoint = "http://websrv.cs.fsu.edu/~engelen/varparam.cgi";
+const char *endpoint = "http://websrv.cs.fsu.edu/~engelen/varparam.cgi";
 
 #define N 100 // max number of parameters
 
@@ -63,17 +63,17 @@ int main(int argc, char **argv)
     return 0;
   }
   if (argc < 3)
-  { p[0] = new xsd__anyURI(endpoint);
+  { p[0] = new xsd__anyURI((char*)endpoint);
     p[1] = new xsd__string(argv[1]);
     p[2] = new xsd__boolean(true);
     p[3] = new xsd__dateTime(time(NULL));
     p[4] = new xsd__double(1234567.89);
-    p[5] = new xsd__base64Binary("encoded in base64");
-    p[6] = new xsd__hexBinary("encoded in hex");
+    p[5] = new xsd__base64Binary((char*)"encoded in base64");
+    p[6] = new xsd__hexBinary((char*)"encoded in hex");
     p[7] = new array(4);
     (*p[7])[0] = new xsd__int(7);
     (*p[7])[1] = NULL;
-    (*p[7])[2] = new xsd__token("x");
+    (*p[7])[2] = new xsd__token((char*)"x");
     (*p[7])[3] = p[1];
     p[8] = p[1];
     n = 9; // actual number of parameters

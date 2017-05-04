@@ -4,7 +4,7 @@
 SOAP_CPP_SRC = $(SOAP_CPP_CLIENT) soapServer.cpp $(SOAP_H_FILES) $(SOAP_NS)
 
 $(SOAP_CPP_SRC) : $(SOAPHEADER)
-	$(SOAP) -L $(SOAP_FLAGS) $(SOAPHEADER)
+	$(SOAP) -L -I$(top_srcdir)/gsoap/import:$(top_srcdir)/gsoap $(SOAP_FLAGS) $(SOAPHEADER)
 
 LDADD = $(SOAP_CPP_LIB) $(SAMPLE_EXTRA_LIBS)
 BUILT_SOURCES = $(SOAP_CPP_SRC) 

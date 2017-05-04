@@ -35,11 +35,11 @@ A commercial use license is available from Genivia, Inc., contact@genivia.com
 */
 
 #include "soapcalcProxy.h"
-#include "soapServiceProxy.h"
+#include "soapgmtProxy.h"
 #include "soapmashupService.h"
 #include "mashup.nsmap"
 
-int main(int argc, char **argv)
+int main()
 {
   mashupService service;
 
@@ -52,15 +52,16 @@ int main(int argc, char **argv)
  *
 \******************************************************************************/
 
-int mashupService::dtx(_XML x, struct _ns3__commingtotown *response)
+int mashupService::dtx(_XML x, _ns3__commingtotown &response)
 {
-  ServiceProxy Time;
-  Time.soap_endpoint = "http://www.cs.fsu.edu/~engelen/gmtlitserver.cgi";
+  (void)x; /* input param that is always empty is simply ignored */
+
+  gmtProxy Time("http://www.cs.fsu.edu/~engelen/gmtlitserver.cgi");
 
   _ns1__gmt gmt;
   _ns1__gmtResponse gmtResponse;
 
-  if (Time.gmt(&gmt, &gmtResponse))
+  if (Time.gmt(&gmt, gmtResponse))
     return soap_receiverfault("Cannot connect to GMT server", NULL);
 
   time_t *now = gmtResponse.param_1;
@@ -70,14 +71,10 @@ int mashupService::dtx(_XML x, struct _ns3__commingtotown *response)
 
   struct tm tm;
 
-  tm.tm_sec = 0;
-  tm.tm_min = 0;
-  tm.tm_hour = 0;
+  memset(&tm, 0, sizeof(struct tm));
   tm.tm_mday = 25;
   tm.tm_mon = 11;
   tm.tm_year = gmtime(now)->tm_year; // this year
-  tm.tm_isdst = 0;
-  tm.tm_zone = NULL;
 
   time_t xmas = soap_timegm(&tm);
 
@@ -95,7 +92,7 @@ int mashupService::dtx(_XML x, struct _ns3__commingtotown *response)
   if (Calc.div(sec, 86400.0, days))
     return soap_receiverfault("Cannot connect to calc server", NULL);
 
-  response->days = (int)days;
+  response.days = (int)days;
 
   soap_delegate_deletion(&Time, this); // Time data to be deleted by 'this'
   soap_delegate_deletion(&Calc, this); // Calc data to be deleted by 'this'

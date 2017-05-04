@@ -1,10 +1,9 @@
 /*
+	httpform.h
 
-httpform.h
+	gSOAP HTTP POST application/x-www-form-urlencoded plugin.
 
-gSOAP HTTP POST application/x-www-form-urlencoded plugin.
-
-Requires linkage with httpget.c (for query_key and query_val)
+	Requires linkage with httpget.c (for query_key and query_val)
 
 Note: multipart/related and multipart/form-data are already handled in gSOAP.
 
@@ -58,13 +57,14 @@ compiling, linking, and/or using OpenSSL is allowed.
 extern "C" {
 #endif
 
-#define HTTP_FORM_ID "HTTP-FORM-1.0" /* plugin identification */
+#define HTTP_FORM_ID "HTTP-FORM-1.1" /* plugin identification */
 
 extern const char http_form_id[];
 
 /* This is the local plugin data shared among all copies of the soap struct: */
 struct http_form_data
 { int (*fparsehdr)(struct soap*, const char*, const char*); /* to save and call the internal HTTP header parser */
+  int (*handler)(struct soap*);
 };
 
 int http_form(struct soap*, struct soap_plugin*, void*);
